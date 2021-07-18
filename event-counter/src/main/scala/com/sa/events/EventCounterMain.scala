@@ -9,6 +9,7 @@ import cats.implicits._
 import com.sa.events.api.EventWSRoutes
 import com.sa.events.config.{ApiConfig, ConfHelper, DatabaseConfig, EnvConfig}
 import com.sa.events.domain.eventdata.EventDataService
+import com.sa.events.tcp.{EventCounterDaemon, EventCounterDaemon1}
 //import com.sa.events.domain.titles.TitleService
 import com.sa.events.tcp.EC2
 import org.http4s.server.middleware.CORS
@@ -36,7 +37,10 @@ object EventCounterMain extends IOApp{
       apiConfig <- ConfHelper.loadCnfF[IO, ApiConfig](externalConfigPath,ApiConfig.namespace,blocker)
       databaseConf <- ConfHelper.loadCnfF[IO,DatabaseConfig](externalConfigPath, DatabaseConfig.namespace, blocker)
 
-      _ <- EC2.run(List())
+//      _ <- EventCounterDaemon.execute[IO](blocker)
+      _ <- EventCounterDaemon1.execute1[IO](blocker)
+//      _ <- EC2.run(List())
+
 //      // TODO: Need some details here, more about transactor, HikariDataSource etc.
 //      xa <- PooledTransactor[IO](databaseConf)
 //      _ <- IO(println(s"Got XA: $xa"))
