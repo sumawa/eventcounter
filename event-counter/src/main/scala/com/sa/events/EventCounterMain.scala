@@ -38,7 +38,7 @@ object EventCounterMain extends IOApp{
       databaseConf <- ConfHelper.loadCnfF[IO,DatabaseConfig](externalConfigPath, DatabaseConfig.namespace, blocker)
 
 //      _ <- EventCounterDaemon.execute[IO](blocker)
-      _ <- EventCounterDaemon1.execute1[IO](blocker)
+      _ <- EventCounterDaemon1.execute[IO](blocker)
 //      _ <- EC2.run(List())
 
 //      // TODO: Need some details here, more about transactor, HikariDataSource etc.

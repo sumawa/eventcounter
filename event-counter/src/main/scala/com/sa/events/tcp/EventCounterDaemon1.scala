@@ -37,7 +37,7 @@ object EventCounterDaemon1 {
 
   import java.net.InetSocketAddress
 
-  def tcpStream1[F[_]](socket: Socket[F])
+  def tcpStream[F[_]](socket: Socket[F])
                      (implicit F: ConcurrentEffect[F]
                       , timer: Timer[F]
                       , contextShift: ContextShift[F]): Stream[F, Option[Map[String,Int]]] = {
@@ -66,18 +66,18 @@ object EventCounterDaemon1 {
     outcome
   }
 
-  def execute1[F[_]](blocker: Blocker)
+  def execute[F[_]](blocker: Blocker)
                              (implicit F: ConcurrentEffect[F]
                     , timer: Timer[F]
                     , contextShift: ContextShift[F]) = {
     SocketGroup[F](blocker).use { sg =>
       sg.client[F](new InetSocketAddress("localhost", 9999)
         ,true,256 * 1024,256 * 1024
-        ,true).use(init1(_).compile.drain)
+        ,true).use(init(_).compile.drain)
     }
   }
 
-  def init1[F[_]](socket: Socket[F])
+  def init[F[_]](socket: Socket[F])
                 (implicit F: ConcurrentEffect[F]
                  , timer: Timer[F]
                  , cs: ContextShift[F])= for {
@@ -85,7 +85,7 @@ object EventCounterDaemon1 {
       F.delay(new InetSocketAddress("localhost", 9999))
     )
     _ <- Stream.eval(F.delay(println(s"IN INIT")))
-    res <- Stream.awakeEvery[F](10 seconds) >> tcpStream1(socket)
+    res <- Stream.awakeEvery[F](10 seconds) >> tcpStream(socket)
   } yield ()
 
 
