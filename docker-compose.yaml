@@ -29,5 +29,5 @@ services:
       - MINIMAL_DATASET=false
     volumes:
       - ./database-init/schema.sql:/schema.sql
-      - ./database-init/initialize-sp.sh:/initialize-sp.sh
-    command: bash -c "sleep 10 && chmod u+x /initialize-sp.sh && /initialize-sp.sh"
+      - ./database-init/initialize-events.sh:/initialize-events.sh
+    command: bash -c "sleep 10 && chmod u+x /initialize-events.sh && /initialize-events.sh"

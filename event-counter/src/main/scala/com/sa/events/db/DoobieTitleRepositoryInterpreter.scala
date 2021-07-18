@@ -6,7 +6,7 @@
 //import cats.effect.Bracket
 //import cats.syntax.all._
 //import com.sa.events.domain.titles.{Title, TitleRepositoryAlgebra}
-//import com.sa.sp.domain.titles.Title
+//import com.sa.events.domain.titles.Title
 //import doobie._
 //import doobie.implicits._
 //import doobie.syntax._

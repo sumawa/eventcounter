@@ -1,4 +1,4 @@
-//package com.sa.sp.db
+//package com.sa.events.db
 //
 //class Example1Test extends  AnyFlatSpec with Matchers with BeforeAndAfterAll {
 //  private var postgres: EmbeddedPostgres = _

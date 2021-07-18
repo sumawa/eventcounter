@@ -35,8 +35,8 @@
 //  // TODO: This (conversion from Throwable to String message) should be handled at the repository layer
 //  def searchTitlesExact: ReaderT[F,SearchParams,AppE[List[Title]]] =
 //    Kleisli {
-//      case sp =>
-//        titleRepo.searchExactWError(sp.term, sp.pageSize, sp.offset).value.map{
+//      case events =>
+//        titleRepo.searchExactWError(events.term, events.pageSize, events.offset).value.map{
 //            case Right(value) => Either.right(value)
 //            case Left(ex) =>
 //              // log here
@@ -46,8 +46,8 @@
 //
 //  def searchTitles: ReaderT[F,SearchParams,AppE[List[Title]]] =
 //    Kleisli {
-//      case sp =>
-//        titleRepo.searchWError(sp.term, sp.pageSize, sp.offset).value.map{
+//      case events =>
+//        titleRepo.searchWError(events.term, events.pageSize, events.offset).value.map{
 //          case Right(value) => Either.right(value)
 //          case Left(ex) =>
 //            // log here
