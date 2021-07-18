@@ -1,0 +1,13 @@
+package com.sa.events.domain.eventdata
+
+import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+
+case class EventData(event_type: String, data: String, timestamp: Long)
+
+object EventData{
+  //    type EventE[T] = Either[String,T]
+  //    type EventEx[T] = Either[SQLException,T]
+  implicit val decode: Decoder[EventData] = deriveDecoder[EventData]
+  implicit val encode: Encoder[EventData] = deriveEncoder[EventData]
+}
