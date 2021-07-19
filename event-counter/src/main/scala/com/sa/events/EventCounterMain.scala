@@ -9,7 +9,7 @@ import cats.effect.concurrent.Ref
 import cats.implicits._
 import com.sa.events.api.EventWSRoutes
 import com.sa.events.config.{ApiConfig, ConfHelper, DatabaseConfig, EnvConfig}
-import com.sa.events.domain.eventdata.{EventCountState, EventDataService, EventDataService1}
+import com.sa.events.domain.eventdata.{EventCountState, EventDataService}
 
 import scala.collection.mutable
 import org.http4s.server.middleware.CORS
@@ -28,7 +28,6 @@ import fs2.io.tcp.{SocketGroup,Socket}
  */
 object EventCounterMain extends IOApp{
 
-
   import cats.implicits._
   override def run(args: List[String]): IO[ExitCode] = {
 
@@ -41,9 +40,6 @@ object EventCounterMain extends IOApp{
       apiConfig <- ConfHelper.loadCnfF[IO, ApiConfig](externalConfigPath,ApiConfig.namespace,blocker)
       databaseConf <- ConfHelper.loadCnfF[IO,DatabaseConfig](externalConfigPath, DatabaseConfig.namespace, blocker)
 
-      inetAddr = new java.net.InetSocketAddress("localhost",9999)
-      _ <- EventDataService1.execute[IO](blocker,inetAddr)
-
 //      // TODO: Need some details here, more about transactor, HikariDataSource etc.
 //      xa <- PooledTransactor[IO](databaseConf)
 //      _ <- IO(println(s"Got XA: $xa"))
@@ -52,8 +48,9 @@ object EventCounterMain extends IOApp{
 //      titleRepo = DoobieTitleRepositoryInterpreter[IO](xa)
 //      nameRepo = DoobieNameRepositoryInterpreter[IO](xa)
 //
+      inetAddr = new java.net.InetSocketAddress("localhost",9999)
       eventDataService = EventDataService[IO]()
-
+      _ <- eventDataService.execute[IO](blocker,inetAddr)
       routes = createRoutes(eventDataService)
 
       // TODO: Need CORS info here
