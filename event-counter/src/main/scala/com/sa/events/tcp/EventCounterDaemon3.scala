@@ -6,6 +6,8 @@ import com.sa.events.domain.eventdata.{EventCountState, EventData}
 import fs2.io.tcp.Socket
 import io.circe.parser.decode
 
+import scala.collection.mutable
+
 /*
  - java.nio.channels and java.nio.channels.Selector libraries.
  - channels represent connections to entities that
@@ -88,7 +90,9 @@ object EventCounterDaemon3 {
       F.delay(new InetSocketAddress("localhost", 9999))
     )
     _ <- Stream.eval(F.delay(println(s"IN INIT")))
-    res <- Stream.awakeEvery[F](10 seconds) >> tcpStream1(socket)
+    initState = EventCountState(mutable.Map[String,Int]())
+    ecs <- Stream.eval(Ref.of[F,EventCountState](initState))
+    res <- Stream.awakeEvery[F](10 seconds) >> tcpStream1(socket,ecs)
 //    res <- Stream.awakeEvery[F](10 seconds) >> tcpStream(socket)
   } yield ()
 
@@ -99,7 +103,7 @@ object EventCounterDaemon3 {
    */
   def tcpStream1[F[_]](socket: Socket[F]
                        //                       , ecs: EventCountState
-//                       , eventCountStateRef: Ref[F,EventCountState]
+                       , eventCountStateRef: Ref[F,EventCountState]
                       )
                       (implicit F: ConcurrentEffect[F]
                        , timer: Timer[F]
@@ -125,12 +129,13 @@ object EventCounterDaemon3 {
             entry._1 -> entry._2.size
           }
       }
-//      .map{ e =>
-//        println(s"updating state: ${e.size}")
-//        e.map{ ee =>
-//          updateEventRef(ee._1,ee._2,eventCountStateRef)
-//          println(s"eventcount: ${eventCountStateRef.get}")
-//        }}
+      .map{ e =>
+        println(s"updating state: ${e.size}")
+        e.map{ ee =>
+//          val ecc = eventCountStateRef.get
+          updateEventRef(ee._1,ee._2,eventCountStateRef.get)
+          println(s"eventcount: ${eventCountStateRef.get}")
+        }}
       .compile.drain
     //    eventData
     //    println(s"eventData: ${eventCountStateRef.get}")
@@ -139,18 +144,18 @@ object EventCounterDaemon3 {
   }
 
   import cats.implicits._
-  import cats.data.StateT
-  def updateEventRef[F[_]](s: String, i: Int, eventCountStateRef: Ref[F,EventCountState])
+  def updateEventRef[F[_]](s: String, i: Int, ecs: F[EventCountState])
                           (implicit F: ConcurrentEffect[F]
                            , timer: Timer[F]
                            , contextShift: ContextShift[F])
   = {
     for{
       _ <- F.delay(println(s"TRIGGERING UPDATE"))
-      ecs <- eventCountStateRef.get
+//      ecs <- eventCountStateRef.get
+      ec <- ecs
       _ <- F.delay{
-        val v = ecs.map(s)
-        ecs.map(s) = v + i
+        val v = ec.map(s)
+        ec.map(s) = v + i
       }
       _ <- F.delay(println(s"ECSSSS $ecs"))
     }yield ()
