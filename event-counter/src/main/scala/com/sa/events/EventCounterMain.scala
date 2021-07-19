@@ -12,9 +12,8 @@ import com.sa.events.config.{ApiConfig, ConfHelper, DatabaseConfig, EnvConfig}
 import com.sa.events.domain.eventdata.{EventCountState, EventDataService, EventDataService1}
 
 import scala.collection.mutable
-//import com.sa.events.domain.titles.TitleService
 import org.http4s.server.middleware.CORS
-//import cats.syntax.all._
+
 import doobie._
 import org.http4s.implicits._
 import org.http4s.server.Router
