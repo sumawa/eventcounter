@@ -38,6 +38,7 @@ final class EventWSRoutes[F[_]](eventDataService: EventDataService[F])
   val printer = Printer.spaces2.copy(dropNullValues = true)
 
   import cats.syntax.flatMap._
+  import cats.syntax.functor._
 
   val routes: HttpRoutes[F] = HttpRoutes.of[F]{
         // get degree of separation of target actor from Kevin Bacon
@@ -53,7 +54,14 @@ final class EventWSRoutes[F[_]](eventDataService: EventDataService[F])
 //            F.delay(Text(s"degree couldn't be computed: $err"))
 ////            NotFound(s"The pattern was not found $err")
 //        }
-        val resp = F.delay(Text("Dummy response"))
+//        val resp = F.delay(Text("Dummy response"))
+        val resp = for{
+          events <- eventDataService.getCurrentEventState()
+        } yield {
+          val jsonOutput = events.asJson
+          val prettyOutput = jsonOutput.printWith(printer)
+          Text(prettyOutput)
+        }
         Stream.eval(resp)
       }
       //        Stream.awakeEvery[F](1.seconds).map{d =>

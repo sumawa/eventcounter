@@ -19,3 +19,8 @@ object EventData{
   */
 case class EventCountState(map: mutable.Map[String, Int])
 
+object EventCountState{
+  implicit val decode: Decoder[EventCountState] = deriveDecoder[EventCountState]
+  implicit val encode: Encoder[EventCountState] = deriveEncoder[EventCountState]
+}
+

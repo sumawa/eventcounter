@@ -116,33 +116,20 @@ class EventDataService[F[_]]
           }
       }
 
-    val finalDegreeState = eventDataSource
-      .through(pipeRef(eventCountStateRef))
-    //      .compile
-    //      .last
-    //
-    //    val res = EitherT.right[String](
-    //      for {
-    //        ds <- finalDegreeState
-    //      } yield (ds.map(_.map))
-    //    )
-    //
-    //    println(s"RES: $res")
-    //    Stream.eval(finalDegreeState)
-    //    Stream.eval(F.delay(println(s" --- ")))
-    finalDegreeState
+    eventDataSource
+      .through(pipe(eventCountStateRef))
   }
 
-  private def pipeRef[F[_]](eventCountStateRef: Ref[F,EventCountState])(implicit F: ConcurrentEffect[F]
-                                                                        , timer: Timer[F]
-                                                                        , contextShift: ContextShift[F])
-  : Stream[F, Map[String,Int]] => Stream[F, EventCountState] = {
+  private def pipe[F[_]](eventCountStateRef: Ref[F,EventCountState])
+                                            (implicit F: ConcurrentEffect[F]
+                                                , timer: Timer[F]
+                                                , contextShift: ContextShift[F])
+      : Stream[F, Map[String,Int]] => Stream[F, EventCountState] = {
     _.evalMap { eventMap =>
       for {
         _ <- F.delay {println(s"Stage  processing Event state by ${Thread.currentThread().getName}")}
         ecs <- eventCountStateRef.get
-        nextState <- execNextState(eventMap)
-          .runS(ecs)
+        nextState <- execNextState(eventMap).runS(ecs)
         _ <- F.delay(println(s"ns: ${nextState.map}"))
       }yield nextState
     }
@@ -152,7 +139,7 @@ class EventDataService[F[_]]
                                  (implicit F: ConcurrentEffect[F]
                                   , timer: Timer[F]
                                   , contextShift: ContextShift[F])
-  : StateT[F,EventCountState,Unit] = {
+      : StateT[F,EventCountState,Unit] = {
     for {
       currEventCountState <- StateT.get[F, EventCountState]
       _ <- StateT.set {
@@ -169,6 +156,10 @@ class EventDataService[F[_]]
         currEventCountState
       }
     } yield ()
+  }
+
+  def getCurrentEventState() = {
+    F.delay(EventCountState(mutable.Map("baz" -> 15, "foo" -> 24, "bar" -> 21)))
   }
 }
 

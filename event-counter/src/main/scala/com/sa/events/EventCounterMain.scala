@@ -50,7 +50,10 @@ object EventCounterMain extends IOApp{
 //
       inetAddr = new java.net.InetSocketAddress("localhost",9999)
       eventDataService = EventDataService[IO]()
-      _ <- eventDataService.execute[IO](blocker,inetAddr)
+      _ <- eventDataService.execute[IO](blocker,inetAddr).runAsync {
+        case Left(e) => IO(e.printStackTrace())
+        case Right(_) => IO.unit
+      }.toIO
       routes = createRoutes(eventDataService)
 
       // TODO: Need CORS info here
