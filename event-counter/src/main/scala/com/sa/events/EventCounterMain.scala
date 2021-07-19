@@ -5,11 +5,14 @@ import java.util.UUID
 
 import cats.data.NonEmptySet
 import cats.effect._
+import cats.effect.concurrent.Ref
 import cats.implicits._
 import com.sa.events.api.EventWSRoutes
 import com.sa.events.config.{ApiConfig, ConfHelper, DatabaseConfig, EnvConfig}
-import com.sa.events.domain.eventdata.EventDataService
-import com.sa.events.tcp.{EventCounterDaemon, EventCounterDaemon1}
+import com.sa.events.domain.eventdata.{EventCountState, EventDataService}
+import com.sa.events.tcp.{EventCounterDaemon, EventCounterDaemon1, EventCounterDaemon3}
+
+import scala.collection.mutable
 //import com.sa.events.domain.titles.TitleService
 import com.sa.events.tcp.EC2
 import org.http4s.server.middleware.CORS
@@ -21,11 +24,15 @@ import org.http4s.server.blaze._
 
 import pureconfig.generic.auto._
 
+import fs2.io.tcp.{SocketGroup,Socket}
 /**
  * IOApp entry point for the application, sets up
  *  repo, services, routes, starts server
  */
 object EventCounterMain extends IOApp{
+
+
+  import cats.implicits._
   override def run(args: List[String]): IO[ExitCode] = {
 
     def program(blocker: Blocker) = for {
@@ -37,9 +44,27 @@ object EventCounterMain extends IOApp{
       apiConfig <- ConfHelper.loadCnfF[IO, ApiConfig](externalConfigPath,ApiConfig.namespace,blocker)
       databaseConf <- ConfHelper.loadCnfF[IO,DatabaseConfig](externalConfigPath, DatabaseConfig.namespace, blocker)
 
+      inetAddr = new java.net.InetSocketAddress("localhost",9999)
+
+
+//      ecs <- Ref.of[IO,EventCountState](EventCountState(mutable.Map[String,Int]()))
+//      _ <- SocketGroup[IO](blocker).use{ sg =>
+//        sg.client[IO](inetAddr, true, 256 * 1024, 256 * 1024, true)
+//          .use { sock => EventCounterDaemon1.executeRef2(blocker, sock, ecs)}
+//      }
+
+//      ecs <- Ref.of[IO,EventCountState](EventCountState(mutable.Map[String,Int]()))
+//      _ <- SocketGroup[IO](blocker).use{ sg =>
+//        sg.client[IO](inetAddr, true, 256 * 1024, 256 * 1024, true)
+//          .use { sock => EventCounterDaemon1.executeRef2(blocker, sock)}
+//      }
+
 //      _ <- EventCounterDaemon.execute[IO](blocker)
-      _ <- EventCounterDaemon1.execute[IO](blocker)
+//      _ <- EventCounterDaemon1.execute[IO](blocker)
+//      _ <- EventCounterDaemon1.executeRef[IO](blocker)
+//        .raiseError(g => println(s"g: $g"))
 //      _ <- EC2.run(List())
+      _ <- EventCounterDaemon3.execute[IO](blocker)
 
 //      // TODO: Need some details here, more about transactor, HikariDataSource etc.
 //      xa <- PooledTransactor[IO](databaseConf)

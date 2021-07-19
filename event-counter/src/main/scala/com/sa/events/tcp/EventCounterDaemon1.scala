@@ -1,9 +1,12 @@
 package com.sa.events.tcp
 
+import cats.effect.concurrent.Ref
 import cats.effect.{Blocker, Bracket, ConcurrentEffect, ContextShift, Timer}
-import com.sa.events.domain.eventdata.EventData
+import com.sa.events.domain.eventdata.{EventCountState, EventData}
 import fs2.io.tcp.Socket
 import io.circe.parser.decode
+
+import scala.collection.mutable
 
 /*
  - java.nio.channels and java.nio.channels.Selector libraries.
@@ -37,18 +40,99 @@ object EventCounterDaemon1 {
 
   import java.net.InetSocketAddress
 
-  def tcpStream[F[_]](socket: Socket[F])
+  import cats.syntax.all._
+
+  /*
+    flatMap once and pass the reference as an argument!
+    We need to call flatMap once up in the call chain where we call the processes
+    to make sure they all share the same state.
+   */
+  def tcpStream1[F[_]](socket: Socket[F]
+//                       , ecs: EventCountState
+                      , eventCountStateRef: Ref[F,EventCountState]
+                     )
                      (implicit F: ConcurrentEffect[F]
                       , timer: Timer[F]
-                      , contextShift: ContextShift[F]): Stream[F, Option[Map[String,Int]]] = {
+                      , contextShift: ContextShift[F])
+//            : Stream[F, Option[Map[String, Int]]] = {
+//            : Stream[F,Unit] = {
+  : Stream[F,EventCountState] = {
+
+    val eventData = Stream.eval(socket.read(4096))
+      .unNone
+      .map{ ch =>
+//        println(s"getting chunks")
+        ch.toList.map(_.toChar).mkString("")
+          .split("\n").toList
+          .flatMap { s =>
+            println(s"decoding events")
+            val decodedEventData = decode[EventData](s)
+            decodedEventData.toOption
+          }
+          .groupBy(_.event_type)
+          .map { entry =>
+            println(s"${entry._1} --- ${entry._2.size} ")
+            entry._1 -> entry._2.size
+          }
+      }
+      .map{ e =>
+        println(s"updating state: ${e.size}")
+        e.map{ ee =>
+        updateEventRef(ee._1,ee._2,eventCountStateRef)
+        println(s"eventcount: ${eventCountStateRef.get}")
+      }}.compile.drain
+//    eventData
+//    println(s"eventData: ${eventCountStateRef.get}")
+    Stream.eval(eventCountStateRef.get)
+//    Stream.eval(eventData.compile.drain)
+  }
+
+  import cats.data.StateT
+  def updateEventRef[F[_]](s: String, i: Int, eventCountStateRef: Ref[F,EventCountState])
+                          (implicit F: ConcurrentEffect[F]
+                           , timer: Timer[F]
+                           , contextShift: ContextShift[F])
+  = {
+    for{
+      ecs <- eventCountStateRef.get
+      _ <- F.delay{
+        val v = ecs.map(s)
+        ecs.map(s) = v + i
+      }
+      _ <- F.delay(println(s"ECSSSS $ecs"))
+    }yield ()
+  }
+//  import cats.data.StateT
+//
+//    private def execNextState[F: ConcurrentEffect: ContextShift: Timer](s: String,i: Int)
+//    : StateT[F,EventCountState,Unit] = {
+//      for {
+//        currState <- StateT.get[F, EventCountState]
+//        currMap = currState.map
+//        _ <- StateT.set {
+//          val v = currState.map(s)
+//          currState.map(s) = v+i
+//          currState
+//        }
+//      } yield ()
+//    }
+
+  def tcpStream[F[_]](socket: Socket[F]
+                      , eventCountStateRef: Ref[F,EventCountState]
+                     )
+                     (implicit F: ConcurrentEffect[F]
+                      , timer: Timer[F]
+                      , contextShift: ContextShift[F]): Stream[F, Option[Map[String, Int]]] = {
 
     val outcome = for {
-      chunks <- Stream.eval{
+      chunks <- Stream.eval {
         println(s"READING CHUNKS")
         socket.read(4096)
       }
-      strList <- Stream.eval{F.delay(chunks.map(_.toList.map(_.toChar).mkString("")))}
-    }yield {
+      strList <- Stream.eval {
+        F.delay(chunks.map(_.toList.map(_.toChar).mkString("")))
+      }
+    } yield {
       val r = strList.map { str =>
         str.split("\n").toList
           .flatMap { s =>
@@ -57,130 +141,137 @@ object EventCounterDaemon1 {
           }
       }
       println(s" GOT EVENT DATA SIZE ${r.map(_.size)}")
-//      println(s"R: $r")
-      val stringListMapOpt = r.map{p => p.groupBy(_.event_type)}
+      //      println(s"R: $r")
+      val stringListMapOpt = r.map { p => p.groupBy(_.event_type) }
       val wc = stringListMapOpt.map(_.map(entry => entry._1 -> entry._2.size))
-      println(s"WC Map: $wc")
+      println(s"WC Map === : $wc")
+      val ecs1 = for {
+        ecs <- eventCountStateRef.get
+        _ <- F.delay(println(s"ecs: $ecs"))
+      } yield ()
+//      eventCountStateRef.update { ecs =>
+//        println(s"udpating event count ref")
+//        val mutMap = ecs.map
+//        println(s"mutMap: $mutMap")
+//        wc.map{w => w.foreach {
+//            kv =>
+//              println(s"kv: $kv")
+//              mutMap(kv._1) += kv._2
+//          }
+//        }
+//        println(s"ecs: $ecs")
+//        ecs
+//      }
       wc
     }
     outcome
   }
 
-  def execute[F[_]](blocker: Blocker)
-                             (implicit F: ConcurrentEffect[F]
-                    , timer: Timer[F]
-                    , contextShift: ContextShift[F]) = {
-    SocketGroup[F](blocker).use { sg =>
-      sg.client[F](new InetSocketAddress("localhost", 9999)
-        ,true,256 * 1024,256 * 1024
-        ,true).use(init(_).compile.drain)
-    }
-  }
+//  import cats.data.StateT
 
-  def init[F[_]](socket: Socket[F])
+  //  private def execNextState[F: ConcurrentEffect: ContextShift: Timer](wcMap: Map[String,Int])
+  //  : StateT[F,EventCountState,Unit] = {
+  //    for {
+  //      currState <- StateT.get[F, EventCountState]
+  //      currMap = currState.map
+  //      newState = nextState(targetActor,currentLevel,q,v,coActors)
+  //      _ <- StateT.set {
+  //        currDegreeState.currentNameState = newState
+  //        currDegreeState
+  //      }
+  //    } yield ()
+  //  }
+
+
+//  def execute[F[_]](blocker: Blocker)
+//                   (implicit F: ConcurrentEffect[F]
+//                    , timer: Timer[F]
+//                    , contextShift: ContextShift[F]) = {
+//    SocketGroup[F](blocker).use { sg =>
+//      sg.client[F](new InetSocketAddress("localhost", 9999)
+//        , true, 256 * 1024, 256 * 1024
+//        , true).use(init(_).compile.drain)
+//    }
+//  }
+
+
+  def init1[F[_]](socket: Socket[F])
                 (implicit F: ConcurrentEffect[F]
                  , timer: Timer[F]
-                 , cs: ContextShift[F])= for {
+                 , cs: ContextShift[F]) = for {
     serverAddr <- Stream.eval(
       F.delay(new InetSocketAddress("localhost", 9999))
     )
     _ <- Stream.eval(F.delay(println(s"IN INIT")))
-    res <- Stream.awakeEvery[F](10 seconds) >> tcpStream(socket)
+    initState = EventCountState(mutable.Map[String,Int]())
+    ecs <- Stream.eval(Ref.of[F,EventCountState](initState))
+    //    res <- Stream.awakeEvery[F](10 seconds) >> tcpStream(socket, eventCountStateRef)
+    //    ecs <- Stream.eval(eventCountStateRef)
+    _ <- Stream.awakeEvery[F](10 seconds) >> tcpStream1[F](socket, ecs)
+    //    _ <- Stream.eval(println(s"r: $r"))
   } yield ()
 
-
-
-  //  /**
-//   * This methods translates the data from an inputstream (say, from a socket)
-//   * to '\n' delimited strings and returns an iterator to access the strings.
-//   */
-//  def bytesToLines(inputStream: InputStream): Iterator[String] = {
-//    val dataInputStream = new BufferedReader(
-//      new InputStreamReader(inputStream, StandardCharsets.UTF_8))
-//    new NextIterator[String] {
-//      protected override def getNext() = {
-//        val nextValue = dataInputStream.readLine()
-//        if (nextValue == null) {
-//          finished = true
-//        }
-//        nextValue
+  def executeRef[F[_]](blocker: Blocker)
+                      (implicit F: ConcurrentEffect[F]
+                      , timer: Timer[F]
+                      , contextShift: ContextShift[F]) = {
+    for{
+      sg <- SocketGroup[F](blocker)
+      inetAddr = new InetSocketAddress("localhost",9999)
+      sock <- sg.client[F](inetAddr, true, 256 * 1024, 256 * 1024, true)
+      initState = EventCountState(mutable.Map[String,Int]())
+    } yield {
+      /*
+        - A new Ref gets created every time we flatMap (creating a Ref is side effect-ful!)
+        - and our processes will not be sharing the same state changing the behavior of program.
+       */
+      Ref.of[F,EventCountState](initState)
+        .flatMap{ecs => init(sock,ecs).compile.drain}
+//      for{
+//        ecs <- Ref.of[F,EventCountState](initState)
+//        l <- init(sock, ecs).compile.drain
+//      } yield ()
+//      val r = Ref.of[F,EventCountState](initState).flatMap { ecs =>
+//        init(sock, ecs).compile.drain
 //      }
-//
-//      protected override def close(): Unit = {
-//        dataInputStream.close()
-//      }
-//    }
-//  }
+
+//      init(sock)
+    }
+  }
+
+  def executeRef2[F[_]](blocker: Blocker, socket: Socket[F]
+                        , ecs: Ref[F,EventCountState]
+                       )
+                      (implicit F: ConcurrentEffect[F]
+                       , timer: Timer[F]
+                       , contextShift: ContextShift[F]) = {
+      val o = for{
+//        ecs <- Ref.of[F,EventCountState]((EventCountState(mutable.Map[String,Int]())))
+        l <- init(socket, ecs).compile.drain
+//        _ <- Stream.eval(F.delay(println(s"IN INIT")))
+//        r <- Stream.awakeEvery[F](10 seconds) >> tcpStream1[F](socket, eventCountStateRef)
+      } yield ()
+      o
+//      /*
+//        - A new Ref gets created every time we flatMap (creating a Ref is side effect-ful!)
+//        - and our processes will not be sharing the same state changing the behavior of program.
+//       */
+  }
+
+  def init[F[_]](socket: Socket[F]
+                , eventCountStateRef: Ref[F,EventCountState]
+                )
+                (implicit F: ConcurrentEffect[F]
+                 , timer: Timer[F]
+                 , cs: ContextShift[F]) = for {
+    serverAddr <- Stream.eval(
+      F.delay(new InetSocketAddress("localhost", 9999))
+    )
+    _ <- Stream.eval(F.delay(println(s"IN INIT")))
+//    res <- Stream.awakeEvery[F](10 seconds) >> tcpStream(socket, eventCountStateRef)
+//    ecs <- Stream.eval(eventCountStateRef)
+    r <- Stream.awakeEvery[F](10 seconds) >> tcpStream1[F](socket, eventCountStateRef)
+//    _ <- Stream.eval(println(s"r: $r"))
+  } yield (r)
+
 }
-/** Provides a basic/boilerplate Iterator implementation. */
-//private[spark] abstract class NextIterator[U] extends Iterator[U] {
-//
-//  private var gotNext = false
-//  private var nextValue: U = _
-//  private var closed = false
-//  protected var finished = false
-//
-//  /**
-//   * Method for subclasses to implement to provide the next element.
-//   *
-//   * If no next element is available, the subclass should set `finished`
-//   * to `true` and may return any value (it will be ignored).
-//   *
-//   * This convention is required because `null` may be a valid value,
-//   * and using `Option` seems like it might create unnecessary Some/None
-//   * instances, given some iterators might be called in a tight loop.
-//   *
-//   * @return U, or set 'finished' when done
-//   */
-//  protected def getNext(): U
-//
-//  /**
-//   * Method for subclasses to implement when all elements have been successfully
-//   * iterated, and the iteration is done.
-//   *
-//   * <b>Note:</b> `NextIterator` cannot guarantee that `close` will be
-//   * called because it has no control over what happens when an exception
-//   * happens in the user code that is calling hasNext/next.
-//   *
-//   * Ideally you should have another try/catch, as in HadoopRDD, that
-//   * ensures any resources are closed should iteration fail.
-//   */
-//  protected def close(): Unit
-//
-//  /**
-//   * Calls the subclass-defined close method, but only once.
-//   *
-//   * Usually calling `close` multiple times should be fine, but historically
-//   * there have been issues with some InputFormats throwing exceptions.
-//   */
-//  def closeIfNeeded(): Unit = {
-//    if (!closed) {
-//      // Note: it's important that we set closed = true before calling close(), since setting it
-//      // afterwards would permit us to call close() multiple times if close() threw an exception.
-//      closed = true
-//      close()
-//    }
-//  }
-//
-//  override def hasNext: Boolean = {
-//    if (!finished) {
-//      if (!gotNext) {
-//        nextValue = getNext()
-//        if (finished) {
-//          closeIfNeeded()
-//        }
-//        gotNext = true
-//      }
-//    }
-//    !finished
-//  }
-//
-//  override def next(): U = {
-//    if (!hasNext) {
-//      throw new NoSuchElementException("End of stream")
-//    }
-//    gotNext = false
-//    nextValue
-//  }
-//}
-
