@@ -69,7 +69,7 @@ object EventDataService1{
     _ <- Stream.eval(F.delay(println(s"IN INIT")))
     initState = EventCountState(mutable.Map[String,Int]())
     ecs <- Stream.eval(Ref.of[F,EventCountState](initState))
-    res <- Stream.awakeEvery[F](10 seconds) >> tcpStream1(socket,ecs)
+    res <- Stream.awakeEvery[F](10 seconds) >> tcpStream(socket,ecs)
     //    res <- Stream.awakeEvery[F](10 seconds) >> tcpStream(socket)
   } yield ()
 
@@ -80,7 +80,7 @@ object EventDataService1{
  */
 //  import cats.implicits._
   import io.circe.parser.decode
-  def tcpStream1[F[_]](socket: Socket[F]
+  def tcpStream[F[_]](socket: Socket[F]
                        //                       , ecs: EventCountState
                        , eventCountStateRef: Ref[F,EventCountState]
                       )(implicit F: ConcurrentEffect[F]
