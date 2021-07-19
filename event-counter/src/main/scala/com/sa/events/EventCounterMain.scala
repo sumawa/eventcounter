@@ -78,8 +78,8 @@ object EventCounterMain extends IOApp{
     }
   }
 
-//  def createRoutes(titleService: TitleService[IO], nameService: NameService[IO]) = {
-//    (new TitleRoutes(titleService)).routes <+> (new NameWSRoutes[IO](nameService)).routes
+//  def createRoutes(eventDataService: EventDataService[IO]) = {
+//    (new EventWSRoutes[IO](eventDataService)).routes <+> (new EventWSRoutes[IO](eventDataService)).routes
 //  }
 
   def createRoutes(eventDataService: EventDataService[IO]) = {
