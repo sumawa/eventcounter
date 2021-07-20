@@ -66,9 +66,6 @@ class EventDataService[F[_]]
                                     , timer: Timer[F]
                                     , contextShift: ContextShift[F]) =
     for {
-      serverAddr <- Stream.eval(
-        F.delay(new InetSocketAddress("localhost", 9999))
-      )
       _ <- Stream.eval(F.delay(println(s"IN INIT")))
       initState = EventCountState(mutable.Map[String,Int]())
       ecs <- Stream.eval(Ref.of[F,EventCountState](initState))
@@ -84,7 +81,6 @@ class EventDataService[F[_]]
   //  import cats.implicits._
   import io.circe.parser.decode
   def tcpStream[F[_]](socket: Socket[F]
-                      //                       , ecs: EventCountState
                       , eventCountStateRef: Ref[F,EventCountState]
                      )(implicit F: ConcurrentEffect[F]
                        , timer: Timer[F]
