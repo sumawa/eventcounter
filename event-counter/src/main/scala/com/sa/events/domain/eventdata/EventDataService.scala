@@ -1,15 +1,17 @@
 package com.sa.events.domain.eventdata
 
 import java.net.InetSocketAddress
+import java.sql.SQLException
 
-import cats.effect.Blocker
+import cats.effect.{Blocker, Sync}
+import com.sa.imdb.domain.meta.EventDataRepositoryAlgebra
 import fs2.io.tcp.{Socket, SocketGroup}
 
 import scala.concurrent.duration._
 
 /**
  * NameServiceWithRef: Service layer, business logic for namess
- * binds with Doobie Repository for making DB calls.
+ * binds with Doobie EventDataRepository for making DB calls.
  *
  * This implementation uses cats Ref
  *
@@ -45,12 +47,12 @@ import fs2.Stream
 
 import scala.collection.mutable
 
-class EventDataService[F[_]]
+class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
                               (implicit F: ConcurrentEffect[F]
                                , timer: Timer[F]
                                , contextShift: ContextShift[F]){
 
-  def execute[F[_]](blocker: Blocker, inetSocketAddress: InetSocketAddress)(implicit F: ConcurrentEffect[F]
+  def execute(blocker: Blocker, inetSocketAddress: InetSocketAddress)(implicit F: ConcurrentEffect[F]
                                                                             , timer: Timer[F]
                                                                             , contextShift: ContextShift[F])
   = {
@@ -62,7 +64,7 @@ class EventDataService[F[_]]
   }
   //  import cats.implicits._
 
-  def init[F[_]](socket: Socket[F])(implicit F: ConcurrentEffect[F]
+  def init(socket: Socket[F])(implicit F: ConcurrentEffect[F]
                                     , timer: Timer[F]
                                     , contextShift: ContextShift[F]) =
     for {
@@ -78,15 +80,15 @@ class EventDataService[F[_]]
   We need to call flatMap once up in the call chain where we call the processes
   to make sure they all share the same state.
  */
-  //  import cats.implicits._
   import io.circe.parser.decode
-  def tcpStream[F[_]](socket: Socket[F]
+  def tcpStream(socket: Socket[F]
                       , eventCountStateRef: Ref[F,EventCountState]
                      )(implicit F: ConcurrentEffect[F]
                        , timer: Timer[F]
                        , contextShift: ContextShift[F])
-  //            : Stream[F,Unit]
-  : Stream[F,EventCountState]
+//              : Stream[F,Int]
+    : Stream[F,Unit]
+//  : Stream[F,EventCountState]
   = {
     /*
       Create a source: using socket read
@@ -109,12 +111,30 @@ class EventDataService[F[_]]
           }
       }
 
-    // tie together the source and pipe
+
     eventDataSource
       .through(pipe(eventCountStateRef))
+      .debug(s => s"number of event counts after pipe ${s.map}")
+      .through(updatePipe)
+//      .evalMap { a => eventDataRepo.updateEventCountMap(a.map)}
+//      .compile
+//      .drain
+//
+//    Stream.eval(res)
+
+    // tie together the source and pipe
+//    val res = eventDataSource
+//      .through(pipe(eventCountStateRef))
+//      .debug(s => s"number of event counts after pipe ${s.map}")
+//      .evalMap { a => eventDataRepo.updateEventCountMap(a.map)}
+//      .compile
+//      .drain
+//
+//    Stream.eval(res)
+//      .evalMap { e => updateMap(e.map)}
   }
 
-  private def pipe[F[_]](eventCountStateRef: Ref[F,EventCountState])
+  private def pipe(eventCountStateRef: Ref[F,EventCountState])
                                             (implicit F: ConcurrentEffect[F]
                                                 , timer: Timer[F]
                                                 , contextShift: ContextShift[F])
@@ -124,12 +144,69 @@ class EventDataService[F[_]]
         _ <- F.delay {println(s"Stage  processing Event state by ${Thread.currentThread().getName}")}
         ecs <- eventCountStateRef.get
         nextState <- execNextState(eventMap).runS(ecs)
+//        _ <- F.delay(updateMap(ecs.map))
+//        _ <- eventDataRepo.updateEventCountMap(ecs.map)
         _ <- F.delay(println(s"ns: ${nextState.map}"))
       }yield nextState
     }
   }
 
-  private def execNextState[F[_]](ecMap: Map[String,Int])
+  private def updatePipe
+                        (implicit F: ConcurrentEffect[F]
+                         , timer: Timer[F]
+                         , contextShift: ContextShift[F])
+  : Stream[F, EventCountState] => Stream[F, Unit] =
+    _.evalMap { ecs =>
+      import cats.syntax.flatMap._
+      for {
+        _ <- F.delay {println(s"Stage  Updating DB Event state by ${Thread.currentThread().getName}")}
+//        eventList = ecs.map.foldLeft(List[(String,Int)]()){ case(acc, (k,v)) =>
+//          (k,v) :: acc
+//        }
+        r <- eventDataRepo.updateEventCountMap(ecs.map)
+        _ <- F.delay(println(s"ns: "))
+      }yield ()
+    }
+
+
+//  def updateDb(mp: mutable.Map[String,Int]) = {
+//    val res = mp.foldLeft(List[EventCount]()){ case(acc, (k,v)) =>
+//      EventCount(k,v) :: acc
+//    }
+//    val res1 = eventDataRepo.updateEventCounts(res).value.flatMap{ v =>
+//      v match {
+//        case Right(x) =>
+//          F.delay(println(s"update succeded: $x"))
+//        case Left(ex) =>
+//          F.delay(println(s"update Failed: ${ex.getMessage}"))
+//      }
+//
+//    }
+//    println(s"updateDb: $res1")
+//    res
+////    res
+//  }
+
+//  def updateDb(list: List[EventCount]) = {
+//    val res1 = eventDataRepo.updateEventCounts(list).value.flatMap{ v =>
+//      v match {
+//        case Right(x) =>
+//          F.delay {
+//            println(s"update succeded: $x")
+//            x
+//          }
+//        case Left(ex) =>
+//          F.delay(println(s"update Failed: ${ex.getMessage}"))
+//          F.delay(-1)
+//      }
+//
+//    }
+//    F.delay(println(s"updateDb: $res1"))
+//
+//    //    res
+//  }
+
+  private def execNextState(ecMap: Map[String,Int])
                                  (implicit F: ConcurrentEffect[F]
                                   , timer: Timer[F]
                                   , contextShift: ContextShift[F])
@@ -147,20 +224,34 @@ class EventDataService[F[_]]
           }
           else currMap(k) = v
         }
+//        eventDataRepo.updateEventCountMap(currMap)
         currEventCountState
       }
     } yield ()
   }
 
   def getCurrentEventState() = {
-    F.delay(EventCountState(mutable.Map("baz" -> 15, "foo" -> 24, "bar" -> 21)))
+    for {
+      ed <- eventDataRepo.getEventData()
+      _ <- F.delay(println(s"ED:::::: $ed"))
+    } yield ed
+//    F.delay(EventCountState(mutable.Map("baz" -> 15, "foo" -> 24, "bar" -> 21)))
   }
+
+  def updateMap(mutMap: mutable.Map[String,Int]) = {
+    println(s"CALLING UPDATE MAP: $mutMap")
+    for {
+      doneOrNot <- eventDataRepo.updateEventCountMap(mutMap)
+      _ <- F.delay(println(s"doneOrNot:::::: $doneOrNot"))
+    } yield doneOrNot
+  }
+
 }
 
 object EventDataService {
-  def apply[F[_]]()
+  def apply[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
                  (implicit F: ConcurrentEffect[F]
                   , timer: Timer[F]
                   , contextShift: ContextShift[F]): EventDataService[F] =
-    new EventDataService[F]()
+    new EventDataService[F](eventDataRepo)
 }

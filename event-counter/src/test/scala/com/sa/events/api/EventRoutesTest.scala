@@ -17,7 +17,7 @@ final class EventRoutesTest extends FeatureBaseSpec {
   implicit def encodeTitle[A[_] : Applicative]: EntityEncoder[A, EventData] =
     jsonEncoderOf
 
-  //  private val emptyRepository: Repository[IO]                              = new TestRepository[IO](Seq.empty)
+  //  private val emptyRepository: EventDataRepository[IO]                              = new TestRepository[IO](Seq.empty)
 
   val qAvenger = "Avengers"
   val exactTrue = true

@@ -48,6 +48,7 @@ lazy val eventCounter = (project in file("event-counter"))
   .settings(libraryDependencies ++= flywayDependencies)
   .settings(libraryDependencies ++= euTimepitDependencies)
   .settings(libraryDependencies ++= sparkDependencies)
+  .settings(libraryDependencies ++= redisDependencies)
   .enablePlugins(ScalafmtPlugin)
 
 cleanFiles += baseDirectory { base =>

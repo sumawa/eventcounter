@@ -57,6 +57,7 @@ final class EventWSRoutes[F[_]](eventDataService: EventDataService[F])
 //        val resp = F.delay(Text("Dummy response"))
         val resp = for{
           events <- eventDataService.getCurrentEventState()
+          _ <- F.delay(println(s"events currently fetched: $events"))
         } yield {
           val jsonOutput = events.asJson
           val prettyOutput = jsonOutput.printWith(printer)

@@ -9,19 +9,18 @@ import cats.effect.concurrent.Ref
 import cats.implicits._
 import com.sa.events.api.EventWSRoutes
 import com.sa.events.config.{ApiConfig, ConfHelper, DatabaseConfig, EnvConfig}
+import com.sa.events.db.RepoHelper
 import com.sa.events.domain.eventdata.{EventCountState, EventDataService}
+import com.sa.events.db.RepoHelper
 
 import scala.collection.mutable
 import org.http4s.server.middleware.CORS
-
 import doobie._
 import org.http4s.implicits._
 import org.http4s.server.Router
 import org.http4s.server.blaze._
-
 import pureconfig.generic.auto._
-
-import fs2.io.tcp.{SocketGroup,Socket}
+import fs2.io.tcp.{Socket, SocketGroup}
 /**
  * IOApp entry point for the application, sets up
  *  repo, services, routes, starts server
@@ -40,6 +39,9 @@ object EventCounterMain extends IOApp{
       apiConfig <- ConfHelper.loadCnfF[IO, ApiConfig](externalConfigPath,ApiConfig.namespace,blocker)
       databaseConf <- ConfHelper.loadCnfF[IO,DatabaseConfig](externalConfigPath, DatabaseConfig.namespace, blocker)
 
+      repo = RepoHelper.getRepo[IO](databaseConf)
+      _ <- RepoHelper.bootstrap[IO](repo)
+
 //      // TODO: Need some details here, more about transactor, HikariDataSource etc.
 //      xa <- PooledTransactor[IO](databaseConf)
 //      _ <- IO(println(s"Got XA: $xa"))
@@ -49,8 +51,8 @@ object EventCounterMain extends IOApp{
 //      nameRepo = DoobieNameRepositoryInterpreter[IO](xa)
 //
       inetAddr = new java.net.InetSocketAddress("localhost",9999)
-      eventDataService = EventDataService[IO]()
-      _ <- eventDataService.execute[IO](blocker,inetAddr).runAsync {
+      eventDataService = EventDataService[IO](repo)
+      _ <- eventDataService.execute(blocker,inetAddr).runAsync {
         case Left(e) => IO(e.printStackTrace())
         case Right(_) => IO.unit
       }.toIO

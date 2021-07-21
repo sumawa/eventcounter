@@ -26,6 +26,7 @@ object Dependencies {
     val mariadbJavaClientV    = "2.5.4"
     val h2V                   = "1.4.199"
     val sparkV                = "3.0.0"
+    val redisV                = "0.12.0"
   }
 
   object ExclusionRules {
@@ -105,6 +106,11 @@ object Dependencies {
 
   val kafkaDependencies = Seq(
     "org.apache.kafka" %% "kafka" % "2.7.0"
+  )
+
+  val redisDependencies = Seq(
+    "dev.profunktor" %% "redis4cats-effects" % redisV
+    , "dev.profunktor" %% "redis4cats-streams" % redisV
   )
 
   val jodaTimeDependencies = Seq(

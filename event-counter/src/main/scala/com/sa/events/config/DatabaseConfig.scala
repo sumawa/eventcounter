@@ -18,11 +18,15 @@ case class DatabaseConfig(
       case "mysql"      => "com.mysql.jdbc.Driver"
       case "postgresql" => "org.postgresql.Driver"
       case "sqlserver"  => "com.microsoft.jdbc.sqlserver.SQLServerDriver"
-//      case "h2"         => ""
+      case "h2"         => "org.h2.Driver"
     }
 
   def jdbcUrl: String =
-    s"jdbc:${`type`}://$host:$port/$name"
+    `type`.toLowerCase match {
+      case "h2" => s"jdbc:h2:mem:$name;DB_CLOSE_DELAY=-1"
+      case _ => s"jdbc:${`type`}://$host:$port/$name"
+    }
+
 
   override def toString: String =
     s"jdbcUrl: $jdbcUrl # user: $user # config: ${config.asJson.noSpaces} "

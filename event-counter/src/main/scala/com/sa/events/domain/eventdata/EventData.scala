@@ -24,3 +24,10 @@ object EventCountState{
   implicit val encode: Encoder[EventCountState] = deriveEncoder[EventCountState]
 }
 
+case class EventCount(eventType: String, count: Int)
+
+object EventCount{
+  implicit val decode: Decoder[EventCount] = deriveDecoder[EventCount]
+  implicit val encode: Encoder[EventCount] = deriveEncoder[EventCount]
+}
+
