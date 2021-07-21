@@ -16,11 +16,11 @@ import org.http4s.websocket.WebSocketFrame._
 import scala.concurrent.duration._
 
 /**
- * NameWSRoutes
- * WebSocket endpoints for serving compute intensive queries
- * related to names
+ * EventWSRoutes
+ * WebSocket endpoints for sending back updated state periodically
  *
  * @tparam F
+ * @param  eventDataService EventDataService
  */
 final class EventWSRoutes[F[_]](eventDataService: EventDataService[F])
                                (implicit F: ConcurrentEffect[F]
@@ -43,21 +43,9 @@ final class EventWSRoutes[F[_]](eventDataService: EventDataService[F])
   import cats.syntax.functor._
 
   val routes: HttpRoutes[F] = HttpRoutes.of[F]{
-        // get degree of separation of target actor from Kevin Bacon
+        // get updated event type counts periodically
     case GET -> Root / "eventData" / "ws1" / target =>
-      val toClient: Stream[F, WebSocketFrame] =
-//      {
-//        val resp = for{
-//          events <- eventDataService.getCurrentEventState()
-//          _ <- F.delay(println(s"events currently fetched: $events"))
-//        } yield {
-//          val jsonOutput = events.asJson
-//          val prettyOutput = jsonOutput.printWith(printer)
-//          Text(prettyOutput)
-//        }
-//        Stream.eval(resp)
-//      }
-      {
+      val toClient: Stream[F, WebSocketFrame] = {
         val resp = for {
           events <- eventDataService.getCurrentEventState()
           _ <- F.delay(println(s"events currently fetched: $events"))
@@ -66,12 +54,9 @@ final class EventWSRoutes[F[_]](eventDataService: EventDataService[F])
           val prettyOutput = jsonOutput.printWith(printer)
           Text(prettyOutput)
         }
+//        Stream.eval(resp)
         Stream.awakeEvery[F](10.seconds) >> Stream.eval(resp)
       }
-//      Stream.awakeEvery[F](10.seconds).map{d =>
-////        println(s"PINGING: ${d}")
-////        Text(s"Ping! $d")
-//      }
       val fromClient: Pipe[F, WebSocketFrame, Unit] = _.evalMap {
         case Text(t, _) => F.delay(println(t))
         case f =>
