@@ -16,8 +16,7 @@ object RepoHelper {
   def getRepo[F[_]: ContextShift: ConcurrentEffect: Timer](dbConfig: DatabaseConfig) = {
     val tx = Transactor
       .fromDriverManager[F](dbConfig.driver, dbConfig.jdbcUrl, dbConfig.user, dbConfig.pass)
-    val repo           = new DoobieEventDataRepositoryInterpreter(tx)
-    repo
+    new DoobieEventDataRepositoryInterpreter(tx)
   }
 
   def bootstrap[F[_]](repo: DoobieEventDataRepositoryInterpreter[F])(implicit F: Sync[F]) = {

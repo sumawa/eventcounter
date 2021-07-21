@@ -62,7 +62,6 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
         , true).use(init(_).compile.drain)
     }
   }
-  //  import cats.implicits._
 
   def init(socket: Socket[F])(implicit F: ConcurrentEffect[F]
                                     , timer: Timer[F]
@@ -82,25 +81,19 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
  */
   import io.circe.parser.decode
   def tcpStream(socket: Socket[F]
-                      , eventCountStateRef: Ref[F,EventCountState]
-                     )(implicit F: ConcurrentEffect[F]
+                , eventCountStateRef: Ref[F,EventCountState])(implicit F: ConcurrentEffect[F]
                        , timer: Timer[F]
                        , contextShift: ContextShift[F])
-//              : Stream[F,Int]
-    : Stream[F,Unit]
-//  : Stream[F,EventCountState]
-  = {
+                      : Stream[F,Unit] = {
     /*
       Create a source: using socket read
      */
     val eventDataSource = Stream.eval(socket.read(4096))
       .unNone
       .map{ ch =>
-        //        println(s"getting chunks")
         ch.toList.map(_.toChar).mkString("")
           .split("\n").toList
           .flatMap { s =>
-            //            println(s"decoding events")
             val decodedEventData = decode[EventData](s)
             decodedEventData.toOption
           }
@@ -111,27 +104,10 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
           }
       }
 
-
     eventDataSource
       .through(pipe(eventCountStateRef))
       .debug(s => s"number of event counts after pipe ${s.map}")
       .through(updatePipe)
-//      .evalMap { a => eventDataRepo.updateEventCountMap(a.map)}
-//      .compile
-//      .drain
-//
-//    Stream.eval(res)
-
-    // tie together the source and pipe
-//    val res = eventDataSource
-//      .through(pipe(eventCountStateRef))
-//      .debug(s => s"number of event counts after pipe ${s.map}")
-//      .evalMap { a => eventDataRepo.updateEventCountMap(a.map)}
-//      .compile
-//      .drain
-//
-//    Stream.eval(res)
-//      .evalMap { e => updateMap(e.map)}
   }
 
   private def pipe(eventCountStateRef: Ref[F,EventCountState])
@@ -144,73 +120,27 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
         _ <- F.delay {println(s"Stage  processing Event state by ${Thread.currentThread().getName}")}
         ecs <- eventCountStateRef.get
         nextState <- execNextState(eventMap).runS(ecs)
-//        _ <- F.delay(updateMap(ecs.map))
-//        _ <- eventDataRepo.updateEventCountMap(ecs.map)
         _ <- F.delay(println(s"ns: ${nextState.map}"))
       }yield nextState
     }
   }
 
-  private def updatePipe
-                        (implicit F: ConcurrentEffect[F]
+  private def updatePipe (implicit F: ConcurrentEffect[F]
                          , timer: Timer[F]
-                         , contextShift: ContextShift[F])
-  : Stream[F, EventCountState] => Stream[F, Unit] =
+                         , contextShift: ContextShift[F]): Stream[F, EventCountState] => Stream[F, Unit] =
     _.evalMap { ecs =>
       import cats.syntax.flatMap._
       for {
         _ <- F.delay {println(s"Stage  Updating DB Event state by ${Thread.currentThread().getName}")}
-//        eventList = ecs.map.foldLeft(List[(String,Int)]()){ case(acc, (k,v)) =>
-//          (k,v) :: acc
-//        }
         r <- eventDataRepo.updateEventCountMap(ecs.map)
-        _ <- F.delay(println(s"ns: "))
+//        _ <- F.delay(println(s"ns: "))
       }yield ()
     }
-
-
-//  def updateDb(mp: mutable.Map[String,Int]) = {
-//    val res = mp.foldLeft(List[EventCount]()){ case(acc, (k,v)) =>
-//      EventCount(k,v) :: acc
-//    }
-//    val res1 = eventDataRepo.updateEventCounts(res).value.flatMap{ v =>
-//      v match {
-//        case Right(x) =>
-//          F.delay(println(s"update succeded: $x"))
-//        case Left(ex) =>
-//          F.delay(println(s"update Failed: ${ex.getMessage}"))
-//      }
-//
-//    }
-//    println(s"updateDb: $res1")
-//    res
-////    res
-//  }
-
-//  def updateDb(list: List[EventCount]) = {
-//    val res1 = eventDataRepo.updateEventCounts(list).value.flatMap{ v =>
-//      v match {
-//        case Right(x) =>
-//          F.delay {
-//            println(s"update succeded: $x")
-//            x
-//          }
-//        case Left(ex) =>
-//          F.delay(println(s"update Failed: ${ex.getMessage}"))
-//          F.delay(-1)
-//      }
-//
-//    }
-//    F.delay(println(s"updateDb: $res1"))
-//
-//    //    res
-//  }
 
   private def execNextState(ecMap: Map[String,Int])
                                  (implicit F: ConcurrentEffect[F]
                                   , timer: Timer[F]
-                                  , contextShift: ContextShift[F])
-      : StateT[F,EventCountState,Unit] = {
+                                  , contextShift: ContextShift[F]): StateT[F,EventCountState,Unit] = {
     for {
       currEventCountState <- StateT.get[F, EventCountState]
       _ <- StateT.set {
@@ -224,7 +154,6 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
           }
           else currMap(k) = v
         }
-//        eventDataRepo.updateEventCountMap(currMap)
         currEventCountState
       }
     } yield ()
@@ -235,17 +164,7 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
       ed <- eventDataRepo.getEventData()
       _ <- F.delay(println(s"ED:::::: $ed"))
     } yield ed
-//    F.delay(EventCountState(mutable.Map("baz" -> 15, "foo" -> 24, "bar" -> 21)))
   }
-
-  def updateMap(mutMap: mutable.Map[String,Int]) = {
-    println(s"CALLING UPDATE MAP: $mutMap")
-    for {
-      doneOrNot <- eventDataRepo.updateEventCountMap(mutMap)
-      _ <- F.delay(println(s"doneOrNot:::::: $doneOrNot"))
-    } yield doneOrNot
-  }
-
 }
 
 object EventDataService {

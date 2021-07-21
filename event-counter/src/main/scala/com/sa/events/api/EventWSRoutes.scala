@@ -13,6 +13,8 @@ import org.http4s.server.websocket._
 import org.http4s.websocket.WebSocketFrame
 import org.http4s.websocket.WebSocketFrame._
 
+import scala.concurrent.duration._
+
 /**
  * NameWSRoutes
  * WebSocket endpoints for serving compute intensive queries
@@ -44,18 +46,19 @@ final class EventWSRoutes[F[_]](eventDataService: EventDataService[F])
         // get degree of separation of target actor from Kevin Bacon
     case GET -> Root / "eventData" / "ws1" / target =>
       val toClient: Stream[F, WebSocketFrame] =
-      {
-//        val resp = nameService.degreeOfSepRef(targetNConst).value.flatMap {
-//          case Right(found) =>
-//            val jsonOutput = found.asJson
-//            val prettyOutput = jsonOutput.printWith(printer)
-//            F.delay(Text(prettyOutput))
-//          case Left(err) =>
-//            F.delay(Text(s"degree couldn't be computed: $err"))
-////            NotFound(s"The pattern was not found $err")
+//      {
+//        val resp = for{
+//          events <- eventDataService.getCurrentEventState()
+//          _ <- F.delay(println(s"events currently fetched: $events"))
+//        } yield {
+//          val jsonOutput = events.asJson
+//          val prettyOutput = jsonOutput.printWith(printer)
+//          Text(prettyOutput)
 //        }
-//        val resp = F.delay(Text("Dummy response"))
-        val resp = for{
+//        Stream.eval(resp)
+//      }
+      {
+        val resp = for {
           events <- eventDataService.getCurrentEventState()
           _ <- F.delay(println(s"events currently fetched: $events"))
         } yield {
@@ -63,12 +66,12 @@ final class EventWSRoutes[F[_]](eventDataService: EventDataService[F])
           val prettyOutput = jsonOutput.printWith(printer)
           Text(prettyOutput)
         }
-        Stream.eval(resp)
+        Stream.awakeEvery[F](10.seconds) >> Stream.eval(resp)
       }
-      //        Stream.awakeEvery[F](1.seconds).map{d =>
-      //          println(s"PINGING: ${d}")
-      //          Text(s"Ping! $d")
-      //        }
+//      Stream.awakeEvery[F](10.seconds).map{d =>
+////        println(s"PINGING: ${d}")
+////        Text(s"Ping! $d")
+//      }
       val fromClient: Pipe[F, WebSocketFrame, Unit] = _.evalMap {
         case Text(t, _) => F.delay(println(t))
         case f =>
