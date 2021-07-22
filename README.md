@@ -7,13 +7,13 @@
 chmod +x blackbox.macosx
 ./blackbox.macosx | nc -lk 9999 
 ```
-2. Build assembly and execute run_eventcounter.sh
+1. Build assembly and execute run_eventcounter.sh
 ```
 sbt "project eventCounter" clean assembly
 
 ./run_eventcount.sh
 ```
-3. The output is generated in the app.log
+2. The output is generated in the app.log
 ```
 tail app.log
 ```
