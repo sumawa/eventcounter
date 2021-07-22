@@ -26,9 +26,9 @@ ws://0.0.0.0:53248/eventData/ws1
 ```
 An example HTML page invoking this websocket end point is following directory.
 Load this file directly in the browser.
-
+```
 ./front/public/TestWS.html
-
+```
 ### Event Counter HTTP Endpoint 
 For the same event data
 ```
