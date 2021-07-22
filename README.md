@@ -7,13 +7,13 @@
 chmod +x blackbox.macosx
 ./blackbox.macosx | nc -lk 9999 
 ```
-2. Build assembly and execute run_eventcounter.sh
+1. Build assembly and execute run_eventcounter.sh
 ```
 sbt "project eventCounter" clean assembly
 
 ./run_eventcount.sh
 ```
-3. The output is generated in the app.log
+2. The output is generated in the app.log
 ```
 tail app.log
 ```
@@ -26,9 +26,9 @@ ws://0.0.0.0:53248/eventData/ws1
 ```
 An example HTML page invoking this websocket end point is following directory.
 Load this file directly in the browser.
-
+```
 ./front/public/TestWS.html
-
+```
 ### Event Counter HTTP Endpoint 
 For the same event data
 ```
