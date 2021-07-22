@@ -30,8 +30,8 @@ import scala.collection.mutable
  */
 class DoobieEventDataRepositoryInterpreter[F[_]](val xa: Transactor[F])
                                                 (implicit F: ConcurrentEffect[F]
-                                                 , contextShift: ContextShift[F]
-                                                , timer: Timer[F]
+//                                                 , contextShift: ContextShift[F]
+//                                                , timer: Timer[F]
                                                 ) extends EventDataRepositoryAlgebra[F] {
 
   import com.sa.events.db.SQLErrorHandler.handleError
@@ -71,7 +71,7 @@ class DoobieEventDataRepositoryInterpreter[F[_]](val xa: Transactor[F])
                   WHERE """ ++ Fragments.in(fr"event_type", list.toNel.get)
 
     val prog: Free[ConnectionOp, Int] = for {
-      di <- delQ.update.run
+      _ <- delQ.update.run
       si <- Update[(String, Int)](updateSql, None, LogHandler.jdkLogHandler)
         .updateMany(eventCounts)
     } yield (si)
@@ -96,7 +96,7 @@ class DoobieEventDataRepositoryInterpreter[F[_]](val xa: Transactor[F])
     WHERE """ ++ Fragments.in(fr"event_type", list.toNel.get)
 
     val prog: Free[ConnectionOp, Int] = for {
-      di <- delQ.update.run
+      _ <- delQ.update.run
       si <- Update[(String, Int)](updateSql, None, LogHandler.jdkLogHandler)
         .updateMany(eventCounts)
     } yield (si)

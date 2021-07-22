@@ -1,13 +1,8 @@
 package com.sa.events.db
 
-import java.util.UUID
-
 import cats.effect.{Async, ConcurrentEffect, ContextShift, IO, Sync, Timer}
 import com.sa.events.config.DatabaseConfig
-import doobie.util.transactor.Transactor
 import cats.implicits._
-import cats.data.{EitherT, NonEmptySet}
-import com.sa.events.domain.eventdata.{EventCount, EventDataService}
 import com.sa.tickets.db.DoobieEventDataRepositoryInterpreter
 
 
@@ -23,15 +18,11 @@ object RepoHelper {
       _ <- F.delay(println(s"Got XA: $xa"))
       eventRepo = DoobieEventDataRepositoryInterpreter[F](xa)
     } yield eventRepo
-//    val tx = Transactor
-//      .fromDriverManager[F](dbConfig.driver, dbConfig.jdbcUrl, dbConfig.user, dbConfig.pass)
-//    new DoobieEventDataRepositoryInterpreter(tx)
   }
 
   def bootstrap[F[_]](repo: DoobieEventDataRepositoryInterpreter[F])(implicit F: Sync[F]) = {
     for {
-//      created <- EitherT.right(repo.createTables())
-      created <-  repo.createTables()
+      _ <-  repo.createTables()
 //      _ <- F.delay(println(s"created tables: ${created}"))
 //      eventCounts1 = List(
 //        ("foo",10)

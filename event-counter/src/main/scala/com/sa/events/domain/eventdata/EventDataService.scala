@@ -6,7 +6,7 @@ import java.sql.SQLException
 import cats.effect.{Blocker, Sync}
 import com.sa.imdb.domain.meta.EventDataRepositoryAlgebra
 import fs2.io.tcp.{Socket, SocketGroup}
-
+import scala.language.postfixOps
 import scala.concurrent.duration._
 
 /**
@@ -45,12 +45,13 @@ import scala.collection.mutable
 
 class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
                               (implicit F: ConcurrentEffect[F]
-                               , timer: Timer[F]
-                               , contextShift: ContextShift[F]){
+                              ){
 
-  def execute(blocker: Blocker, inetSocketAddress: InetSocketAddress)(implicit F: ConcurrentEffect[F]
-                                                                            , timer: Timer[F]
-                                                                            , contextShift: ContextShift[F])
+  def execute(blocker: Blocker
+              , inetSocketAddress: InetSocketAddress
+             )(implicit F: ConcurrentEffect[F]
+                        , timer: Timer[F]
+                        , contextShift: ContextShift[F])
   = {
     SocketGroup[F](blocker).use { sg =>
       sg.client[F](inetSocketAddress
@@ -77,8 +78,9 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
   import io.circe.parser.decode
   def tcpStream(socket: Socket[F]
                 , eventCountStateRef: Ref[F,EventCountState])(implicit F: ConcurrentEffect[F]
-                       , timer: Timer[F]
-                       , contextShift: ContextShift[F])
+//                       , timer: Timer[F]
+//                       , contextShift: ContextShift[F]
+                         )
                       : Stream[F,Unit] = {
     /*
       Create a Stream source: using socket read
@@ -110,8 +112,7 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
 
   private def eventProcessPipe(eventCountStateRef: Ref[F,EventCountState])
                                             (implicit F: ConcurrentEffect[F]
-                                                , timer: Timer[F]
-                                                , contextShift: ContextShift[F])
+                                            )
       : Stream[F, Map[String,Int]] => Stream[F, EventCountState] = {
     _.evalMap { eventMap =>
       for {
@@ -125,14 +126,13 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
   }
 
   private def eventPersistPipe (implicit F: ConcurrentEffect[F]
-                         , timer: Timer[F]
-                         , contextShift: ContextShift[F]): Stream[F, EventCountState] => Stream[F, Unit] =
+                               ): Stream[F, EventCountState] => Stream[F, Unit] =
     _.evalMap { ecs =>
       import cats.syntax.flatMap._
       for {
         // TODO: Thread debugs for experimenting with parallel execution, to be removed
         _ <- F.delay {println(s"Stage  Updating DB Event state by ${Thread.currentThread().getName}")}
-        r <- eventDataRepo.updateEventCountMap(ecs.map).value
+        _ <- eventDataRepo.updateEventCountMap(ecs.map).value
 //        _ <- F.delay(println(s"ns: "))
       }yield ()
     }
@@ -142,13 +142,12 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
    */
   private def execNextState(ecMap: Map[String,Int])
                                  (implicit F: ConcurrentEffect[F]
-                                  , timer: Timer[F]
-                                  , contextShift: ContextShift[F]): StateT[F,EventCountState,Unit] = {
+                                 ): StateT[F,EventCountState,Unit] = {
     for {
       currEventCountState <- StateT.get[F, EventCountState]
       _ <- StateT.set {
         val currMap = currEventCountState.map
-        val c = ecMap.map{ entry =>
+        ecMap.map{ entry =>
           val (k,v) = (entry._1,entry._2)
           if (currMap.contains(k)) {
             val currVal = currMap(k)
@@ -177,7 +176,6 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
 object EventDataService {
   def apply[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
                  (implicit F: ConcurrentEffect[F]
-                  , timer: Timer[F]
-                  , contextShift: ContextShift[F]): EventDataService[F] =
+                 ): EventDataService[F] =
     new EventDataService[F](eventDataRepo)
 }

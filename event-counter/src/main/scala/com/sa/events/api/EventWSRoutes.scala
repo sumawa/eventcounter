@@ -25,8 +25,8 @@ import scala.concurrent.duration._
  */
 final class EventWSRoutes[F[_]](eventDataService: EventDataService[F])
                                (implicit F: ConcurrentEffect[F]
-                              , contextShift: ContextShift[F]
-                               , timer: Timer[F]) extends Http4sDsl[F]{
+                               , timer: Timer[F]
+                               ) extends Http4sDsl[F]{
 
   // bring JSON codecs in scope for http4s
   implicit def decodeTitle: EntityDecoder[F,EventData] =

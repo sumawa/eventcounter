@@ -14,9 +14,7 @@ import cats.syntax.functor._
  */
 trait SQLErrorHandler {
   def handleError[F[_],T](e: F[Either[SQLException,T]])
-                    (implicit F: ConcurrentEffect[F]
-                      , contextShift: ContextShift[F]
-                      , timer: Timer[F])
+                    (implicit F: ConcurrentEffect[F])
       : EitherT[F,String,T] = {
     val c = e.map{
       case Left(ex) => Left(s"${ex.getMessage}")
