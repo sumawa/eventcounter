@@ -3,9 +3,9 @@ package com.sa.tickets.db
 import java.sql.SQLException
 import java.util.UUID
 
+import cats.data.EitherT
 import cats.effect.{ConcurrentEffect, ContextShift, Sync, Timer}
 import cats.free.Free
-
 import com.sa.events.domain.eventdata.EventCount
 import com.sa.imdb.domain.meta.EventDataRepositoryAlgebra
 import doobie._
@@ -33,6 +33,8 @@ class DoobieEventDataRepositoryInterpreter[F[_]](val xa: Transactor[F])
                                                  , contextShift: ContextShift[F]
                                                 , timer: Timer[F]) extends EventDataRepositoryAlgebra[F] {
 
+  import com.sa.events.db.SQLErrorHandler.handleError
+
   def createTables() = {
     println(s"CREATING TABLES")
 
@@ -50,10 +52,10 @@ class DoobieEventDataRepositoryInterpreter[F[_]](val xa: Transactor[F])
       created <- createSql.update.run
     } yield created
 
-    prog.transact(xa)
+    handleError(prog.transact(xa).attemptSql)
   }
 
-  override def updateEventCountMap(ecMap: mutable.Map[String,Int]): F[Int] = {
+  override def updateEventCountMap(ecMap: mutable.Map[String,Int]): EitherT[F,String,Int] = {
     val eventCounts = ecMap.foldLeft(List[(String,Int)]()){ case(acc, (k,v)) =>
       (k,v) :: acc
     }
@@ -75,7 +77,7 @@ class DoobieEventDataRepositoryInterpreter[F[_]](val xa: Transactor[F])
     } yield (si)
     val res = prog.transact(xa)
     println(s"AFTER UPDATING Event counts MAP: ${res}")
-    res
+    handleError(res.attemptSql)
   }
 
   /**
@@ -84,8 +86,7 @@ class DoobieEventDataRepositoryInterpreter[F[_]](val xa: Transactor[F])
    * @param eventCounts list of event counts to be saved
    * @return The number of affected database rows of shows.
    */
-//  override def updateEventCounts(eventCounts: List[EventCount]): EitherT[F,SQLException,Int] = {
-  override def insertEventCounts(eventCounts: List[(String,Int)]): F[Int] = {
+  override def insertEventCounts(eventCounts: List[(String,Int)]): EitherT[F,String,Int] = {
     println(s"INSERTING EVENT COUNTS: ${eventCounts.size}")
 
     val list = eventCounts.map(_._1)
@@ -104,35 +105,38 @@ class DoobieEventDataRepositoryInterpreter[F[_]](val xa: Transactor[F])
     } yield (si)
     val res = prog.transact(xa)
     println(s"AFTER UPDATING Event counts INSERT: ${res}")
-    res
+    handleError(res.attemptSql)
   }
 
-  override def getEventData(): F[Seq[EventCount]] = {
+  override def getEventData(): EitherT[F,String,Seq[EventCount]] = {
     println(s"GETTING EVENT DATA")
-    sql"""
-    SELECT event_type, event_count
-    FROM event_counts
-    """.queryWithLogHandler[EventCount](LogHandler.jdkLogHandler)
-      .to[Seq]
-      .transact(xa)
+    handleError(
+      sql"""
+         SELECT event_type, event_count
+         FROM event_counts
+         """.queryWithLogHandler[EventCount](LogHandler.jdkLogHandler)
+        .to[Seq]
+        .transact(xa)
+        .attemptSql
 
+    )
   }
 
-  override def countEventCounts(): F[Seq[Int]] = {
+  override def countEventCounts(): EitherT[F,String,Seq[Int]] = {
     val res = sql"""SELECT count(event_type)
           FROM event_counts"""
       .query[Int]
       .to[Seq]
       .transact(xa)
     println(s"counting number of event counts: ${res}")
-    res
+    handleError(res.attemptSql)
   }
 
-  override def deleteEventCountByType(eventType: String): F[Int] = {
+  override def deleteEventCountByType(eventType: String): EitherT[F,String,Int] = {
     val prog: Free[ConnectionOp, Int] = for {
       dl <- sql"DELETE FROM event_counts WHERE event_type = ${eventType}".update.run
     } yield (dl)
-    prog.transact(xa)
+    handleError(prog.transact(xa).attemptSql)
   }
 }
 

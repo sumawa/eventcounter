@@ -31,7 +31,7 @@ object EventCounterMain extends IOApp{
       databaseConf <- ConfHelper.loadCnfF[IO,DatabaseConfig](externalConfigPath, DatabaseConfig.namespace, blocker)
 
       repo = RepoHelper.getEventRepo[IO](databaseConf)
-      _ <- RepoHelper.bootstrap[IO](repo)
+      _ <- RepoHelper.bootstrap[IO](repo).value
 
 //      // TODO: Need some details here, more about transactor, HikariDataSource etc.
 //      xa <- PooledTransactor[IO](databaseConf)

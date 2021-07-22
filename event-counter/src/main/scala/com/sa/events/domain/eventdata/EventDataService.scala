@@ -132,7 +132,7 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
       for {
         // TODO: Thread debugs for experimenting with parallel execution, to be removed
         _ <- F.delay {println(s"Stage  Updating DB Event state by ${Thread.currentThread().getName}")}
-        r <- eventDataRepo.updateEventCountMap(ecs.map)
+        r <- eventDataRepo.updateEventCountMap(ecs.map).value
 //        _ <- F.delay(println(s"ns: "))
       }yield ()
     }
@@ -169,7 +169,7 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
   def getCurrentEventState() = {
     for {
       ed <- eventDataRepo.getEventData()
-      _ <- F.delay(println(s"ED:::::: $ed"))
+      _ <- EitherT.liftF[F,String,Unit](F.delay(println(s"ED:::::: $ed")))
     } yield ed
   }
 }

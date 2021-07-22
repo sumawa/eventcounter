@@ -46,14 +46,27 @@ final class EventWSRoutes[F[_]](eventDataService: EventDataService[F])
         // get updated event type counts periodically
     case GET -> Root / "eventData" / "ws1" / target =>
       val toClient: Stream[F, WebSocketFrame] = {
-        val resp = for {
-          events <- eventDataService.getCurrentEventState()
-          _ <- F.delay(println(s"events currently fetched: $events"))
-        } yield {
-          val jsonOutput = events.asJson
-          val prettyOutput = jsonOutput.printWith(printer)
-          Text(prettyOutput)
+        val resp = eventDataService.getCurrentEventState().value.flatMap {
+          case Left(error) =>
+            F.delay(Text(s"Error: $error"))
+          case Right(v) =>
+            val jsonOutput = v.asJson
+            val prettyOutput = jsonOutput.printWith(printer)
+            println(s"events currently fetched: $prettyOutput")
+            F.delay(Text(prettyOutput))
+
         }
+//        val resp = for {
+//          events <- eventDataService.getCurrentEventState().value.flatMap {
+//            case Left(ex) => NotFound
+//            case Right(ev) => ev
+//          }
+//          _ <- F.delay(println(s"events currently fetched: $events"))
+//        } yield {
+//          val jsonOutput = events.asJson
+//          val prettyOutput = jsonOutput.printWith(printer)
+//          Text(prettyOutput)
+//        }
 //        Stream.eval(resp)
         Stream.awakeEvery[F](10.seconds) >> Stream.eval(resp)
       }

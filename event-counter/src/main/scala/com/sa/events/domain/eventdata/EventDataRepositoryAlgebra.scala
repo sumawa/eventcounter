@@ -12,15 +12,16 @@ import scala.collection.mutable
  */
 trait EventDataRepositoryAlgebra[F[_]] {
 
-  def createTables(): F[Int]
+  def createTables(): EitherT[F,String,Int]
 
-  def updateEventCountMap(ecMap: mutable.Map[String,Int]): F[Int]
+  def updateEventCountMap(ecMap: mutable.Map[String,Int]): EitherT[F,String,Int]
 
-  def insertEventCounts(eventCounts: List[(String,Int)]): F[Int]
+  def insertEventCounts(eventCounts: List[(String,Int)]): EitherT[F,String,Int]
 
-  def getEventData(): F[Seq[EventCount]]
+  def getEventData(): EitherT[F,String,Seq[EventCount]]
 
-  def deleteEventCountByType(eventType: String): F[Int]
+  def deleteEventCountByType(eventType: String): EitherT[F,String,Int]
 
-  def countEventCounts(): F[Seq[Int]]
+  def countEventCounts(): EitherT[F,String,Seq[Int]]
+
 }
