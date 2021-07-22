@@ -1,33 +1,24 @@
 package com.sa.events
 
 import java.nio.file.Paths
-import java.util.UUID
 
-import cats.data.NonEmptySet
 import cats.effect._
-import cats.effect.concurrent.Ref
-import cats.implicits._
 import com.sa.events.api.EventWSRoutes
 import com.sa.events.config.{ApiConfig, ConfHelper, DatabaseConfig, EnvConfig}
-import com.sa.events.db.RepoHelper
 import com.sa.events.domain.eventdata.{EventCountState, EventDataService}
 import com.sa.events.db.RepoHelper
 
-import scala.collection.mutable
 import org.http4s.server.middleware.CORS
-import doobie._
 import org.http4s.implicits._
 import org.http4s.server.Router
 import org.http4s.server.blaze._
 import pureconfig.generic.auto._
-import fs2.io.tcp.{Socket, SocketGroup}
 /**
  * IOApp entry point for the application, sets up
  *  repo, services, routes, starts server
  */
 object EventCounterMain extends IOApp{
 
-  import cats.implicits._
   override def run(args: List[String]): IO[ExitCode] = {
 
     def program(blocker: Blocker) = for {
@@ -39,7 +30,7 @@ object EventCounterMain extends IOApp{
       apiConfig <- ConfHelper.loadCnfF[IO, ApiConfig](externalConfigPath,ApiConfig.namespace,blocker)
       databaseConf <- ConfHelper.loadCnfF[IO,DatabaseConfig](externalConfigPath, DatabaseConfig.namespace, blocker)
 
-      repo = RepoHelper.getRepo[IO](databaseConf)
+      repo = RepoHelper.getEventRepo[IO](databaseConf)
       _ <- RepoHelper.bootstrap[IO](repo)
 
 //      // TODO: Need some details here, more about transactor, HikariDataSource etc.
@@ -62,7 +53,6 @@ object EventCounterMain extends IOApp{
       corsService = CORS(routes)
       httpApp        = Router("/" -> corsService).orNotFound
       server         = BlazeServerBuilder[IO].bindHttp(apiConfig.port, apiConfig.host).withHttpApp(httpApp)
-//      fiber          = server.resource.use(_ => IO(StdIn.readLine())).as(ExitCode.Success)
       // TODO: Significance of fiber
       fiber          <- server.resource.use(_ => IO.never).as(ExitCode.Success)
     } yield fiber

@@ -10,33 +10,29 @@ import fs2.io.tcp.{Socket, SocketGroup}
 import scala.concurrent.duration._
 
 /**
- * NameServiceWithRef: Service layer, business logic for namess
+ * EventDataService: Service layer, business logic for handling events
  * binds with Doobie EventDataRepository for making DB calls.
  *
- * This implementation uses cats Ref
+ * This implementation uses cats Ref[F, A] which is side effect-ful for reasons:
+ *  - to keep the property of referential transparency while sharing and mutating state.
+ *  - when we invoke flatMap on it twice we get two different mutable states
+ *  - It gives way more control than having a val ref hanging around in our code and gives local reasoning.
  *
-Ref[F, A] is side-effect-ful, because,
-      + wanting to keep the property of referential transparency while sharing and mutating state.
-      + when we invoke flatMap on it twice we get two different mutable states,
-      + and this is the power of Referential Transparency.
-      + It gives way more control than having a val ref hanging around in our code and gives local reasoning.
-
-    Benefits of Referential Transparency
-    - being able to understand and build code in a compositional way.
-    - That is, understanding code by understanding individual parts
-      and putting them back together
-    - And building code by building individual parts and combining them together.
-    - This is only possible if local reasoning is guaranteed
-    - Because otherwise there will be weird interactions when we put things back together
-    - and referential transparency is defined as something that guarantees local reasoning.
-
-    Case of state sharing
-        - since the only way to share is passing things as an argument,
-        - the regions of sharing are exactly the same of our call graph
-        - so we transform an important aspect of the behaviour (“who shares this state?”)
-        - into a straightforward syntactical property (“what methods take this argument”?).
-        - This makes shared state in pure FP a lot easier to reason about than its side-effect-ful counterpart.
-
+ * Benefits because of Referential Transparency
+ *  - being able to understand and build code in a compositional way.
+ *  - That is, understanding code by understanding individual parts
+ *    and putting them back together
+ *  - And building code by building individual parts and combining them together.
+ *  - This is only possible if local reasoning is guaranteed
+ *  - Because otherwise there will be weird interactions when we put things back together
+ *  - and referential transparency is defined as something that guarantees local reasoning.
+ *
+ *  Case of state sharing
+ *  - since the only way to share is passing things as an argument,
+ *  - the regions of sharing are exactly the same of our call graph
+ *  - Instead of focusing on “who shares this state?”
+ *  - we focus on “what methods take this argument?”.
+ *  - This makes shared state in pure FP a lot easier to reason about than its side-effect-ful counterpart.
  */
 
 import cats.data.{EitherT, StateT}
@@ -63,22 +59,21 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
     }
   }
 
-  def init(socket: Socket[F])(implicit F: ConcurrentEffect[F]
+  private def init(socket: Socket[F])(implicit F: ConcurrentEffect[F]
                                     , timer: Timer[F]
                                     , contextShift: ContextShift[F]) =
     for {
       _ <- Stream.eval(F.delay(println(s"IN INIT")))
       initState = EventCountState(mutable.Map[String,Int]())
+      /*
+        flatMap once and pass the reference as an argument!
+        We need to call flatMap once up in the call chain where we call the processes
+        to make sure they all share the same state.
+     */
       ecs <- Stream.eval(Ref.of[F,EventCountState](initState))
-      res <- Stream.awakeEvery[F](10 seconds) >> tcpStream(socket,ecs)
-      //    res <- Stream.awakeEvery[F](10 seconds) >> tcpStream(socket)
+      _ <- Stream.awakeEvery[F](10 seconds) >> tcpStream(socket,ecs)
     } yield ()
 
-  /*
-  flatMap once and pass the reference as an argument!
-  We need to call flatMap once up in the call chain where we call the processes
-  to make sure they all share the same state.
- */
   import io.circe.parser.decode
   def tcpStream(socket: Socket[F]
                 , eventCountStateRef: Ref[F,EventCountState])(implicit F: ConcurrentEffect[F]
@@ -86,7 +81,10 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
                        , contextShift: ContextShift[F])
                       : Stream[F,Unit] = {
     /*
-      Create a source: using socket read
+      Create a Stream source: using socket read
+        - read lines and decode EventData
+        - ignore bad data
+        - group collection by event_type
      */
     val eventDataSource = Stream.eval(socket.read(4096))
       .unNone
@@ -105,19 +103,20 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
       }
 
     eventDataSource
-      .through(pipe(eventCountStateRef))
+      .through(eventProcessPipe(eventCountStateRef))
       .debug(s => s"number of event counts after pipe ${s.map}")
-      .through(updatePipe)
+      .through(eventPersistPipe)
   }
 
-  private def pipe(eventCountStateRef: Ref[F,EventCountState])
+  private def eventProcessPipe(eventCountStateRef: Ref[F,EventCountState])
                                             (implicit F: ConcurrentEffect[F]
                                                 , timer: Timer[F]
                                                 , contextShift: ContextShift[F])
       : Stream[F, Map[String,Int]] => Stream[F, EventCountState] = {
     _.evalMap { eventMap =>
       for {
-        _ <- F.delay {println(s"Stage  processing Event state by ${Thread.currentThread().getName}")}
+        // TODO: Thread debugs for experimenting with parallel execution, to be removed
+        _ <- F.delay {println(s"Stage processing Event state by ${Thread.currentThread().getName}")}
         ecs <- eventCountStateRef.get
         nextState <- execNextState(eventMap).runS(ecs)
         _ <- F.delay(println(s"ns: ${nextState.map}"))
@@ -125,18 +124,22 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
     }
   }
 
-  private def updatePipe (implicit F: ConcurrentEffect[F]
+  private def eventPersistPipe (implicit F: ConcurrentEffect[F]
                          , timer: Timer[F]
                          , contextShift: ContextShift[F]): Stream[F, EventCountState] => Stream[F, Unit] =
     _.evalMap { ecs =>
       import cats.syntax.flatMap._
       for {
+        // TODO: Thread debugs for experimenting with parallel execution, to be removed
         _ <- F.delay {println(s"Stage  Updating DB Event state by ${Thread.currentThread().getName}")}
         r <- eventDataRepo.updateEventCountMap(ecs.map)
 //        _ <- F.delay(println(s"ns: "))
       }yield ()
     }
 
+  /*
+    Mutate EventCountState
+   */
   private def execNextState(ecMap: Map[String,Int])
                                  (implicit F: ConcurrentEffect[F]
                                   , timer: Timer[F]
@@ -159,6 +162,10 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
     } yield ()
   }
 
+  /**
+   *
+   * @return    All Event types and their counts
+   */
   def getCurrentEventState() = {
     for {
       ed <- eventDataRepo.getEventData()

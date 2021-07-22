@@ -13,7 +13,7 @@ import com.sa.tickets.db.DoobieEventDataRepositoryInterpreter
 
 object RepoHelper {
 
-  def getRepo[F[_]: ContextShift: ConcurrentEffect: Timer](dbConfig: DatabaseConfig) = {
+  def getEventRepo[F[_]: ContextShift: ConcurrentEffect: Timer](dbConfig: DatabaseConfig) = {
     val tx = Transactor
       .fromDriverManager[F](dbConfig.driver, dbConfig.jdbcUrl, dbConfig.user, dbConfig.pass)
     new DoobieEventDataRepositoryInterpreter(tx)

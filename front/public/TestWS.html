@@ -27,7 +27,7 @@
 
   function onOpen(evt)
   {
-    writeToScreen("CONNECTED");
+    writeToScreen("CONNECTED. Data will be updated every 10 seconds");
     doSend("WebSocket rocks");
   }
 
@@ -58,6 +58,7 @@
     var pre = document.createElement("p");
     pre.style.wordWrap = "break-word";
     pre.innerHTML = message;
+<!--    output.innerHTML = '';-->
     output.appendChild(pre);
   }
 
