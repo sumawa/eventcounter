@@ -23,9 +23,10 @@ A websocket end point that refresh every 10 seconds
 ```
 ws://0.0.0.0:53248/eventData/ws1
 ```
-An example HTML page invoking this websocket end point is following directory
+An example HTML page invoking this websocket end point is following directory.
+Load this file directly in the browser.
 
-/eventcounter/front/public/TestWS.html
+./front/public/TestWS.html
 
 ### Event Counter HTTP Endpoint 
 For the same event data
@@ -57,6 +58,7 @@ http://localhost:53248/eventData
 
 #### Possible Improvements:
 
+* Http Service and Event processing daemon can be separate projects deployed independently
 * Profiling (Apache Bench, VisualVM)
 * Exhuastive Test cases and Coverage
 
