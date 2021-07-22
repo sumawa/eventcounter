@@ -16,9 +16,6 @@ trait EventDataRepositoryAlgebra[F[_]] {
 
   def updateEventCountMap(ecMap: mutable.Map[String,Int]): F[Int]
 
-  def updateEventCounts(eventCounts: List[(String,Int)]): F[Int]
-//  def updateEventCounts(eventCounts: List[EventCount]): EitherT[F,SQLException,Int]
-
   def insertEventCounts(eventCounts: List[(String,Int)]): F[Int]
 
   def getEventData(): F[Seq[EventCount]]

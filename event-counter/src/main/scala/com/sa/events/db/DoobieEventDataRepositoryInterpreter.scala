@@ -3,16 +3,14 @@ package com.sa.tickets.db
 import java.sql.SQLException
 import java.util.UUID
 
-import cats.data.{EitherT, NonEmptyList, NonEmptySet}
-import cats.effect.{Bracket, ConcurrentEffect, ContextShift, Sync, Timer}
+import cats.effect.{ConcurrentEffect, ContextShift, Sync, Timer}
 import cats.free.Free
-import com.sa.events.db.EventDataRepository
+
 import com.sa.events.domain.eventdata.EventCount
 import com.sa.imdb.domain.meta.EventDataRepositoryAlgebra
 import doobie._
 import doobie.free.connection.ConnectionOp
 import doobie.implicits._
-import doobie.h2.implicits._
 
 import scala.collection.mutable
 
@@ -33,9 +31,7 @@ import scala.collection.mutable
 class DoobieEventDataRepositoryInterpreter[F[_]](val xa: Transactor[F])
                                                 (implicit F: ConcurrentEffect[F]
                                                  , contextShift: ContextShift[F]
-                                                , timer: Timer[F])
-
-extends EventDataRepositoryAlgebra[F] {
+                                                , timer: Timer[F]) extends EventDataRepositoryAlgebra[F] {
 
   def createTables() = {
     println(s"CREATING TABLES")
@@ -111,32 +107,6 @@ extends EventDataRepositoryAlgebra[F] {
     res
   }
 
-  import cats.syntax.all._
-  override def updateEventCounts(eventCounts: List[(String,Int)]): F[Int] = {
-    println(s"Updating Event counts: ${eventCounts.size}")
-    val updateSql = "INSERT into event_counts (event_type,event_count) values (?,?)"
-
-    val invertedEventCounts = eventCounts.map(ec => (ec._2,ec._1))
-    val upSql = s"""
-                UPDATE event_counts
-                SET  event_count = ?
-                WHERE event_type = ?
-              """
-    def updateEC: ConnectionIO[Int] =
-      Update[(Int, String)](upSql,None,LogHandler.jdkLogHandler)
-        .updateMany(invertedEventCounts)
-
-    val res = updateEC.transact(xa)
-    println(s"AFTER UPDATING Event counts: ${res}")
-    res
-  }
-
-  def deleteAll: F[Int] = {
-    val prog: Free[ConnectionOp, Int] = for {
-      dl <- sql"DELETE FROM event_counts".update.run
-    } yield (dl)
-    prog.transact(xa)
-  }
   override def getEventData(): F[Seq[EventCount]] = {
     println(s"GETTING EVENT DATA")
     sql"""
@@ -156,19 +126,6 @@ extends EventDataRepositoryAlgebra[F] {
       .transact(xa)
     println(s"counting number of event counts: ${res}")
     res
-  }
-  private object EventDataSql{
-    def createEventDataTable  = {
-      sql"""
-           |CREATE TABLE IF NOT EXISTS event_count  (
-           |  event_type    VARCHAR(10000) NOT NULL,
-           |  count         INT DEFAULT 0,
-           |  PRIMARY KEY (event_type)
-           |);
-           |
-           |""".queryWithLogHandler[Int](LogHandler.jdkLogHandler)
-
-    }
   }
 
   override def deleteEventCountByType(eventType: String): F[Int] = {
