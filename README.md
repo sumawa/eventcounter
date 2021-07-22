@@ -48,6 +48,10 @@ http://localhost:53248/eventData
   }
 ]
 ```
+### Shutting down
+```
+./kill_eventcount.sh
+```
 
 #### Libraries used
 * http4s: a Type safe, functional, streaming HTTP for Scala (Http4s deals with I/O using cats-effect)
