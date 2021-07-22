@@ -78,8 +78,6 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
   import io.circe.parser.decode
   def tcpStream(socket: Socket[F]
                 , eventCountStateRef: Ref[F,EventCountState])(implicit F: ConcurrentEffect[F]
-//                       , timer: Timer[F]
-//                       , contextShift: ContextShift[F]
                          )
                       : Stream[F,Unit] = {
     /*
