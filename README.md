@@ -2,19 +2,20 @@
 ###
 
 ### How to build or test the source code
-
-1. Build assembly and execute run_eventcounter.sh
+0. Setting up event generation binary as event source using netcat
+```
+chmod +x blackbox.macosx
+./blackbox.macosx | nc -lk 9999 
+```
+2. Build assembly and execute run_eventcounter.sh
 ```
 sbt "project eventCounter" clean assembly
+
 ./run_eventcount.sh
 ```
-2. The output is generated in the app.log
+3. The output is generated in the app.log
 ```
 tail app.log
-```
-3. Test
-```
-sbt  "project eventCounter" clean test
 ```
 
 ### Event Counter Endpoint Websocket :
