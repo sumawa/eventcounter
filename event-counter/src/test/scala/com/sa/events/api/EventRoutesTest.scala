@@ -23,13 +23,13 @@ final class EventRoutesTest extends FeatureBaseSpec {
   //  private val emptyRepository: EventDataRepository[IO]                              = new TestRepository[IO](Seq.empty)
 
   feature("Testing EventRoute WS") {
-    scenario(s"GET  / eventData / ws1 must return This is a WebSocket route ") {
+    scenario(s"GET  / eventData / ws must return This is a WebSocket route ") {
       Given(s"""Database is running """)
-      println(s"GET  / eventData / ws1")
+      println(s"GET  / eventData / ws")
       val expectedStatusCode = Status.Ok
 
       val response: IO[Response[IO]] = (new EventWSRoutes[IO](eventDataService)).routes.orNotFound.run(
-        Request(method = Method.GET, uri = uri"/eventData/ws1")
+        Request(method = Method.GET, uri = uri"/eventData/ws")
       )
 
       val res = response.unsafeRunSync().body.compile.toVector.unsafeRunSync

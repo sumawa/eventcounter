@@ -43,7 +43,7 @@ final class EventWSRoutes[F[_]](eventDataService: EventDataService[F])
   val routes: HttpRoutes[F] = HttpRoutes.of[F]{
         // get updated event type counts periodically
         // A websocket endpoint
-    case GET -> Root / "eventData" / "ws1"  =>
+    case GET -> Root / "eventData" / "ws"  =>
       val toClient: Stream[F, WebSocketFrame] = {
         val resp = eventDataService.getCurrentEventState().value.flatMap {
           case Left(error) =>
