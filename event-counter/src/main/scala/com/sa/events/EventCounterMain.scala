@@ -30,17 +30,9 @@ object EventCounterMain extends IOApp{
       apiConfig <- ConfHelper.loadCnfF[IO, ApiConfig](externalConfigPath,ApiConfig.namespace,blocker)
       databaseConf <- ConfHelper.loadCnfF[IO,DatabaseConfig](externalConfigPath, DatabaseConfig.namespace, blocker)
 
-      repo = RepoHelper.getEventRepo[IO](databaseConf)
+      repo <- RepoHelper.getEventRepo[IO](databaseConf)
       _ <- RepoHelper.bootstrap[IO](repo).value
 
-//      // TODO: Need some details here, more about transactor, HikariDataSource etc.
-//      xa <- PooledTransactor[IO](databaseConf)
-//      _ <- IO(println(s"Got XA: $xa"))
-//
-//      // TODO: Need some details here, Interpreter, Algebra etc.
-//      titleRepo = DoobieTitleRepositoryInterpreter[IO](xa)
-//      nameRepo = DoobieNameRepositoryInterpreter[IO](xa)
-//
       inetAddr = new java.net.InetSocketAddress("localhost",9999)
       eventDataService = EventDataService[IO](repo)
       _ <- eventDataService.execute(blocker,inetAddr).runAsync {
@@ -69,10 +61,6 @@ object EventCounterMain extends IOApp{
       case Right(r) => IO(r)
     }
   }
-
-//  def createRoutes(eventDataService: EventDataService[IO]) = {
-//    (new EventWSRoutes[IO](eventDataService)).routes <+> (new EventWSRoutes[IO](eventDataService)).routes
-//  }
 
   def createRoutes(eventDataService: EventDataService[IO]) = {
     (new EventWSRoutes[IO](eventDataService)).routes

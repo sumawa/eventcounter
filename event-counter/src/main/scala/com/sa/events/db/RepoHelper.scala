@@ -2,21 +2,30 @@ package com.sa.events.db
 
 import java.util.UUID
 
-import cats.effect.{Async, ConcurrentEffect, ContextShift, Sync, Timer}
+import cats.effect.{Async, ConcurrentEffect, ContextShift, IO, Sync, Timer}
 import com.sa.events.config.DatabaseConfig
 import doobie.util.transactor.Transactor
 import cats.implicits._
 import cats.data.{EitherT, NonEmptySet}
-import com.sa.events.domain.eventdata.EventCount
+import com.sa.events.domain.eventdata.{EventCount, EventDataService}
 import com.sa.tickets.db.DoobieEventDataRepositoryInterpreter
 
 
 object RepoHelper {
 
-  def getEventRepo[F[_]: ContextShift: ConcurrentEffect: Timer](dbConfig: DatabaseConfig) = {
-    val tx = Transactor
-      .fromDriverManager[F](dbConfig.driver, dbConfig.jdbcUrl, dbConfig.user, dbConfig.pass)
-    new DoobieEventDataRepositoryInterpreter(tx)
+  def getEventRepo[F[_]](dbConfig: DatabaseConfig)
+                        (implicit F: ConcurrentEffect[F]
+                         , contextShift: ContextShift[F]
+                        , timer: Timer[F])
+                         = {
+    for {
+      xa <- PooledTransactor[F](dbConfig)
+      _ <- F.delay(println(s"Got XA: $xa"))
+      eventRepo = DoobieEventDataRepositoryInterpreter[F](xa)
+    } yield eventRepo
+//    val tx = Transactor
+//      .fromDriverManager[F](dbConfig.driver, dbConfig.jdbcUrl, dbConfig.user, dbConfig.pass)
+//    new DoobieEventDataRepositoryInterpreter(tx)
   }
 
   def bootstrap[F[_]](repo: DoobieEventDataRepositoryInterpreter[F])(implicit F: Sync[F]) = {

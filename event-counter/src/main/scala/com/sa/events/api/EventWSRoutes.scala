@@ -17,7 +17,8 @@ import scala.concurrent.duration._
 
 /**
  * EventWSRoutes
- * WebSocket endpoints for sending back updated state periodically
+ * A WebSocket endpoint for sending back updated state periodically
+ * Http endpoint for querying current event counts.
  *
  * @tparam F
  * @param  eventDataService EventDataService
@@ -26,9 +27,6 @@ final class EventWSRoutes[F[_]](eventDataService: EventDataService[F])
                                (implicit F: ConcurrentEffect[F]
                               , contextShift: ContextShift[F]
                                , timer: Timer[F]) extends Http4sDsl[F]{
-
-  object showId extends QueryParamDecoderMatcher[String]("uuid")
-  object t extends QueryParamDecoderMatcher[String]("title")
 
   // bring JSON codecs in scope for http4s
   implicit def decodeTitle: EntityDecoder[F,EventData] =
@@ -44,7 +42,8 @@ final class EventWSRoutes[F[_]](eventDataService: EventDataService[F])
 
   val routes: HttpRoutes[F] = HttpRoutes.of[F]{
         // get updated event type counts periodically
-    case GET -> Root / "eventData" / "ws1" / target =>
+        // A websocket endpoint
+    case GET -> Root / "eventData" / "ws1"  =>
       val toClient: Stream[F, WebSocketFrame] = {
         val resp = eventDataService.getCurrentEventState().value.flatMap {
           case Left(error) =>
@@ -52,29 +51,31 @@ final class EventWSRoutes[F[_]](eventDataService: EventDataService[F])
           case Right(v) =>
             val jsonOutput = v.asJson
             val prettyOutput = jsonOutput.printWith(printer)
-            println(s"events currently fetched: $prettyOutput")
+//            println(s"events currently fetched: $prettyOutput")
             F.delay(Text(prettyOutput))
 
         }
-//        val resp = for {
-//          events <- eventDataService.getCurrentEventState().value.flatMap {
-//            case Left(ex) => NotFound
-//            case Right(ev) => ev
-//          }
-//          _ <- F.delay(println(s"events currently fetched: $events"))
-//        } yield {
-//          val jsonOutput = events.asJson
-//          val prettyOutput = jsonOutput.printWith(printer)
-//          Text(prettyOutput)
-//        }
-//        Stream.eval(resp)
         Stream.awakeEvery[F](10.seconds) >> Stream.eval(resp)
       }
       val fromClient: Pipe[F, WebSocketFrame, Unit] = _.evalMap {
-        case Text(t, _) => F.delay(println(t))
+        case Text(t, _) => F.delay(println(s"RECEIVED FROM CLIENT: $t"))
         case f =>
-          F.delay(println(s"GOT target nconst: $f  $target"))
+          F.delay(println(s"F : $f "))
       }
       WebSocketBuilder[F].build(toClient, fromClient)
+
+      // A regular HTTP Get end point, same as the websocket above.
+    case GET -> Root /"eventData"  => {
+      println(s"GET -> Root / eventData ")
+      eventDataService.getCurrentEventState().value.flatMap {
+        case Left(error) =>
+          NotFound(s"Error: $error")
+        case Right(v) =>
+          val jsonOutput = v.asJson
+          val prettyOutput = jsonOutput.printWith(printer)
+          //            println(s"events currently fetched: $prettyOutput")
+          Ok(prettyOutput)
+      }
+    }
   }
 }

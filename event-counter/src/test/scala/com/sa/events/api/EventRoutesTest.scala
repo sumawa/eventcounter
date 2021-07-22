@@ -10,6 +10,9 @@ import org.http4s._
 import org.http4s.circe._
 import org.http4s.implicits._
 
+/**
+ * TODO: Dummy tests, to be filled
+ */
 final class EventRoutesTest extends FeatureBaseSpec {
   implicit def decodeTitle: EntityDecoder[IO, EventData] =
     jsonOf
@@ -19,70 +22,37 @@ final class EventRoutesTest extends FeatureBaseSpec {
 
   //  private val emptyRepository: EventDataRepository[IO]                              = new TestRepository[IO](Seq.empty)
 
-  val qAvenger = "Avengers"
-  val exactTrue = true
-  val exactFalse = false
-  val hGenre = "horror"
+  feature("Testing EventRoute WS") {
+    scenario(s"GET  / eventData / ws1 must return This is a WebSocket route ") {
+      Given(s"""Database is running """)
+      println(s"GET  / eventData / ws1")
+      val expectedStatusCode = Status.Ok
 
-  feature("Testing TitleRoutes") {
-    scenario(s"GET /find querying on q ${qAvenger} and exact $exactTrue must return primaryTitle : The Avengers") {
+      val response: IO[Response[IO]] = (new EventWSRoutes[IO](eventDataService)).routes.orNotFound.run(
+        Request(method = Method.GET, uri = uri"/eventData/ws1")
+      )
+
+      val res = response.unsafeRunSync().body.compile.toVector.unsafeRunSync
+        .map(_.toChar).mkString
+
+      println(s"RES: $res")
+      assert("This is a WebSocket route".equalsIgnoreCase(res))
+    }
+
+    scenario(s"GET /eventData must return event counts") {
       Given(s"""Database is running """)
       val expectedStatusCode = Status.Ok
 
       val response: IO[Response[IO]] = (new EventWSRoutes[IO](eventDataService)).routes.orNotFound.run(
-        Request(method = Method.GET, uri = uri"/find?q=Avengers&exact=true")
+        Request(method = Method.GET, uri = uri"/eventData")
       )
       // (bytes.map(_.toChar)).mkString
       val res = response.unsafeRunSync().body.compile.toVector.unsafeRunSync
         .map(_.toChar).mkString
 
-      import io.circe.parser.decode
-//      val titleListEither = decode[List[Title]](res)
-//      When(s"if submit request is made ")
-//      //          println(s"titleList $titleList")
-//      val isProcessed = titleListEither match {
-//        case Left(failure) =>
-//          println(s"FAILED DUE TO ${failure.getMessage}")
-//          false
-//        case Right(list) =>
-//          println(s"GOT LIST ")
-//          val avgers = list.filter(_.primaryTitle == "The Avengers")
-//          println(s"avgers: $avgers")
-//          !avgers.isEmpty
-//      }
-//      Then(s"the API /find invocation should be true: $isProcessed")
       val isProcessed = true
       assert(isProcessed == true)
     }
-
-//    scenario(s"GET /search/title querying on genre ${hGenre} and exact $exactTrue must return primaryTitle : The Shining") {
-//      Given(s"""Database is running """)
-//      val expectedStatusCode = Status.Ok
-//
-//      val response: IO[Response[IO]] = (new TitleRoutes(titleS)).routes.orNotFound.run(
-//        Request(method = Method.GET, uri = uri"/search/title?genres=horror")
-//      )
-//      // (bytes.map(_.toChar)).mkString
-//      val res = response.unsafeRunSync().body.compile.toVector.unsafeRunSync
-//        .map(_.toChar).mkString
-//
-//      import io.circe.parser.decode
-//      val titleListEither = decode[List[Title]](res)
-//      When(s"if submit request is made ")
-//      //          println(s"titleList $titleList")
-//      val isProcessed = titleListEither match {
-//        case Left(failure) =>
-//          println(s"FAILED DUE TO ${failure.getMessage}")
-//          false
-//        case Right(list) =>
-//          println(s"GOT LIST ")
-//          val shining = list.filter(_.primaryTitle == "The Shining")
-//          println(s"shining: $shining")
-//          !shining.isEmpty
-//      }
-//      Then(s"the API /search invocation should be true: $isProcessed")
-//      assert(isProcessed == true)
-//    }
   }
 
   // helper function for automatically unwrapping results

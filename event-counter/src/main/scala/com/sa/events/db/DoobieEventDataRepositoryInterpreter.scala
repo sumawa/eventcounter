@@ -31,7 +31,8 @@ import scala.collection.mutable
 class DoobieEventDataRepositoryInterpreter[F[_]](val xa: Transactor[F])
                                                 (implicit F: ConcurrentEffect[F]
                                                  , contextShift: ContextShift[F]
-                                                , timer: Timer[F]) extends EventDataRepositoryAlgebra[F] {
+                                                , timer: Timer[F]
+                                                ) extends EventDataRepositoryAlgebra[F] {
 
   import com.sa.events.db.SQLErrorHandler.handleError
 
@@ -59,16 +60,15 @@ class DoobieEventDataRepositoryInterpreter[F[_]](val xa: Transactor[F])
     val eventCounts = ecMap.foldLeft(List[(String,Int)]()){ case(acc, (k,v)) =>
       (k,v) :: acc
     }
-    println(s"UPDATING EVENT COUNTS AFTER DELETING : ${ecMap.size}")
 
     val list = eventCounts.map(_._1)
     val updateSql = "INSERT into event_counts (event_type,event_count) values (?,?)"
 
     import cats.syntax.all._
     val delQ = fr"""
-    DELETE
-    FROM event_counts
-    WHERE """ ++ Fragments.in(fr"event_type", list.toNel.get)
+                  DELETE
+                  FROM event_counts
+                  WHERE """ ++ Fragments.in(fr"event_type", list.toNel.get)
 
     val prog: Free[ConnectionOp, Int] = for {
       di <- delQ.update.run
@@ -76,7 +76,6 @@ class DoobieEventDataRepositoryInterpreter[F[_]](val xa: Transactor[F])
         .updateMany(eventCounts)
     } yield (si)
     val res = prog.transact(xa)
-    println(s"AFTER UPDATING Event counts MAP: ${res}")
     handleError(res.attemptSql)
   }
 
@@ -87,8 +86,6 @@ class DoobieEventDataRepositoryInterpreter[F[_]](val xa: Transactor[F])
    * @return The number of affected database rows of shows.
    */
   override def insertEventCounts(eventCounts: List[(String,Int)]): EitherT[F,String,Int] = {
-    println(s"INSERTING EVENT COUNTS: ${eventCounts.size}")
-
     val list = eventCounts.map(_._1)
     val updateSql = "INSERT into event_counts (event_type,event_count) values (?,?)"
 
@@ -104,7 +101,6 @@ class DoobieEventDataRepositoryInterpreter[F[_]](val xa: Transactor[F])
         .updateMany(eventCounts)
     } yield (si)
     val res = prog.transact(xa)
-    println(s"AFTER UPDATING Event counts INSERT: ${res}")
     handleError(res.attemptSql)
   }
 
@@ -128,7 +124,6 @@ class DoobieEventDataRepositoryInterpreter[F[_]](val xa: Transactor[F])
       .query[Int]
       .to[Seq]
       .transact(xa)
-    println(s"counting number of event counts: ${res}")
     handleError(res.attemptSql)
   }
 
