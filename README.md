@@ -101,13 +101,14 @@ http://localhost:53248/eventData
 ./kill_eventcount.sh
 ```
 
-#### Possible Improvements:
+#### Possible Improvements (Overall TODOs):
 
 * Http Service and Event processing daemon can be separate projects deployed independently
 * More externally configurable properties, esp for scheduled activities like socket read and websocket push
 * Profiling (Apache Bench, VisualVM)
-* Exhuastive Test cases and Coverage (Need more time to write test cases)
+* Exhaustive Test cases and Coverage (Need more time to write test cases)
 * More error handling needed in "execute" defined in EventDataService, and investigate acquire and release of socket resources.
+* Explore Spark Streaming, Kafka based approaches for comparison (pros and cons)
 
 #### Libraries used
 * http4s: a Type safe, functional, streaming HTTP for Scala (Http4s deals with I/O using cats-effect)
