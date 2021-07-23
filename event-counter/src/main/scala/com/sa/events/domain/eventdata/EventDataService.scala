@@ -48,9 +48,9 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
                               ){
 
   /**
-   * open a tcp connection and read stream
-   * FIXME: There is a possible bug in following code, as the "release" may not happen after use.
-   * FIXME: To be tested and move socket use within init after Stream.awakeEvery code
+   * open a tcp connection and read stream periodically
+   *
+   * TODO: Test if "release" happens after Stream.awakeEvery ???
    *
    * TODO: There is no error handling during resource acquisition
    *
@@ -116,12 +116,38 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
           }
       }
 
+    /*
+        Defined
+          - a Source that emits Map of String Int,
+          - an event processing pipe that performs aggregation of all event counts
+          - an event persist pipe that saves current aggregation results somewhere
+
+        connect these elements via a method in FS2 streams called through,
+        which transforms a given stream given a pipe:
+    */
+
     eventDataSource
       .through(eventProcessPipe(eventCountStateRef))
       .debug(s => s"number of event counts after pipe ${s.map}")
       .through(eventPersistPipe)
   }
 
+  /*
+    The pipe is a streaming element with open input and output
+    - a function that takes a stream of a certain type and returns another stream of same or different type.
+    - used as processing step to transform data gotten from source
+    - Can consist of single or multiple steps
+
+    Pipe has type Pipe[F[_],-I,+O] which is a type alias for
+    A stream transformation represented as function from stream to stream.
+
+    type Pipe[F[_], -I, +O] = Stream[F,I] => Stream[F,O]
+    Here for event processing the Pipe could be seen as
+
+      Pipe[F[_], -Map[String,Int], EventCountState]
+
+    resulting in aggregation of event counts
+   */
   private def eventProcessPipe(eventCountStateRef: Ref[F,EventCountState])
                                             (implicit F: ConcurrentEffect[F]
                                             )
@@ -137,6 +163,13 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
     }
   }
 
+  /*
+    Here for event persisting the Pipe could be seen as
+
+      Pipe[F[_], -EventCountState, Unit]
+
+    resulting in persisting of event counts
+   */
   private def eventPersistPipe (implicit F: ConcurrentEffect[F]
                                ): Stream[F, EventCountState] => Stream[F, Unit] =
     _.evalMap { ecs =>
@@ -145,7 +178,6 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
         // TODO: Thread debugs for experimenting with parallel execution, to be removed
         _ <- F.delay {println(s"Stage  Updating DB Event state by ${Thread.currentThread().getName}")}
         _ <- eventDataRepo.updateEventCountMap(ecs.map).value
-//        _ <- F.delay(println(s"ns: "))
       }yield ()
     }
 
