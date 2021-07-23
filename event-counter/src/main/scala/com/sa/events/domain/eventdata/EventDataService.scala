@@ -47,6 +47,20 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
                               (implicit F: ConcurrentEffect[F]
                               ){
 
+  /**
+   * open a tcp connection and read stream
+   * FIXME: There is a possible bug in following code, as the "release" may not happen after use.
+   * FIXME: To be tested and move socket use within init after Stream.awakeEvery code
+   *
+   * TODO: There is no error handling during resource acquisition
+   *
+   * @param blocker
+   * @param inetSocketAddress
+   * @param F
+   * @param timer
+   * @param contextShift
+   * @return
+   */
   def execute(blocker: Blocker
               , inetSocketAddress: InetSocketAddress
              )(implicit F: ConcurrentEffect[F]
