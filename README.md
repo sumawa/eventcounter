@@ -1,36 +1,77 @@
 # Event Counter
 ###
 
-### How to build or test the source code
-0. Setting up event generation binary as event source using netcat
+### Design and execution points
+
+- The event source process is run using netcat
 ```
 chmod +x blackbox.macosx
 ./blackbox.macosx | nc -lk 9999 
+``` 
+
+It emits data like
+
 ```
-1. Build assembly and execute run_eventcounter.sh
+{ "event_type": "foo", "data": "amet", "timestamp": 1627008128 }
+{ "R= ??c?z?
+{ "event_type": "bar", "data": "ipsum", "timestamp": 1627008128 }
+{ "event_type": "bar", "data": "lorem", "timestamp": 1627008128 }
+{ "event_type": "baz", "data": "sit", "timestamp": 1627008128 }
+```  
+
+- Goal is to compute windowed word count grouped by event_type, something like this
+
+```
+http://localhost:53248/eventData
+
+[
+  {
+    "eventType" : "bar",
+    "count" : 60
+  },
+  {
+    "eventType" : "foo",
+    "count" : 61
+  },
+  {
+    "eventType" : "baz",
+    "count" : 55
+  }
+]
+```
+
+- The event counter application is built in the form of assembly and executed with run
 ```
 sbt "project eventCounter" clean assembly
 
 ./run_eventcount.sh
 ```
-2. The output is generated in the app.log
+- The output is generated in the app.log
 ```
 tail app.log
 ```
+- It starts 
+  * an http4s BlazeServer serving http requests 
+  * and internally a scheduled stream emitter which opens client TCP socket and read chunks from the server.
 
-### Event Counter Endpoint Websocket :
-A websocket end point that refresh every 10 seconds
+#### Note:
+- This arrangement is just for demo, in the ideal world an http service and stream processor will be independent components run and managed separately. 
+
+### End points exposed ###
+#### Event Counter Endpoint Websocket :
+
+- A websocket end point that refresh every 10 seconds (defined in com.sa.events.api.EventWSRoutes)
 
 ```
 ws://0.0.0.0:53248/eventData/ws1
 ```
 An example HTML page invoking this websocket end point is following directory.
-Load this file directly in the browser.
+To test this endpoint, load this file directly in the browser.
 ```
 ./front/public/TestWS.html
 ```
-### Event Counter HTTP Endpoint 
-For the same event data
+#### Event Counter HTTP Endpoint 
+For the same event data, a regular HTTP GET
 ```
 http://localhost:53248/eventData
 
@@ -65,7 +106,8 @@ http://localhost:53248/eventData
 
 * Http Service and Event processing daemon can be separate projects deployed independently
 * Profiling (Apache Bench, VisualVM)
-* Exhuastive Test cases and Coverage
+* Exhuastive Test cases and Coverage (Need more time to write test cases)
+* There is a possible bug in "execute" defined in EventDataService, as the "release" may not happen after use. 
 
 #### Artefacts:
 - EventCounterMain: 
@@ -80,6 +122,9 @@ http://localhost:53248/eventData
          
 - Domain: 
     - EventData: case class with implicit decoder/encoder
+    - EventDataService: The core logic of 
+      * reading event source and processing data as stream
+      * persist currently aggregated event count data in either DB or redis
         
 - Config: 
     - Loads EnvConfig (env.conf) from resource 
