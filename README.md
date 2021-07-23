@@ -69,7 +69,7 @@ tail app.log
 - A websocket end point that refresh every 10 seconds (defined in com.sa.events.api.EventWSRoutes)
 
 ```
-ws://0.0.0.0:53248/eventData/ws1
+ws://0.0.0.0:53248/eventData/ws
 ```
 An example HTML page invoking this websocket end point is following directory.
 To test this endpoint, load this file directly in the browser.
