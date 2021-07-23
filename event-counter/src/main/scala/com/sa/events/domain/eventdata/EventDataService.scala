@@ -91,8 +91,7 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
 
   import io.circe.parser.decode
   def tcpStream(socket: Socket[F]
-                , eventCountStateRef: Ref[F,EventCountState])(implicit F: ConcurrentEffect[F]
-                         )
+                , eventCountStateRef: Ref[F,EventCountState])(implicit F: ConcurrentEffect[F])
                       : Stream[F,Unit] = {
     /*
       Create a Stream source: using socket read
@@ -122,7 +121,7 @@ class EventDataService[F[_]](eventDataRepo: EventDataRepositoryAlgebra[F])
           - an event processing pipe that performs aggregation of all event counts
           - an event persist pipe that saves current aggregation results somewhere
 
-        connect these elements via a method in FS2 streams called through,
+        connect these elements (source and pipes) via a method in FS2 streams called through,
         which transforms a given stream given a pipe:
     */
 
