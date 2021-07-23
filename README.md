@@ -57,6 +57,12 @@ tail app.log
 #### Note:
 - This arrangement is just for demo, in the ideal world an http service and stream processor will be independent components run and managed separately. 
 
+#### About com.sa.events.domain.EventDataService
+- The streaming logic is defined in the form of 
+  * Event source: Reads a certain amount of chunks from server and group data by event_type
+  * Event processing pipe: processing (aggregating grouped count into a state)
+  * Event persist pipe: updating current aggregate into DB 
+  
 ### End points exposed ###
 #### Event Counter Endpoint Websocket :
 
