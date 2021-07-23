@@ -101,20 +101,20 @@ http://localhost:53248/eventData
 ./kill_eventcount.sh
 ```
 
-#### Libraries used
-* http4s: a Type safe, functional, streaming HTTP for Scala (Http4s deals with I/O using cats-effect)
-* cats/cats-effect: high-performance, asynchronous, composable framework for building real-world applications in a purely functional style
-* doobie: a pure functional JDBC layer for Scala and Cats. It provides a functional way to construct programs that use JDBC.
-* fs2: purely functional, effectful, and polymorphic stream processing library
-* others: circe (JSON library) pureconfig (for loading configuration files)
-
 #### Possible Improvements:
 
 * Http Service and Event processing daemon can be separate projects deployed independently
 * More externally configurable properties, esp for scheduled activities like socket read and websocket push
 * Profiling (Apache Bench, VisualVM)
 * Exhuastive Test cases and Coverage (Need more time to write test cases)
-* There is a possible bug in "execute" defined in EventDataService, as the "release" may not happen after use. 
+* More error handling needed in "execute" defined in EventDataService, and investigate acquire and release of socket resources.
+
+#### Libraries used
+* http4s: a Type safe, functional, streaming HTTP for Scala (Http4s deals with I/O using cats-effect)
+* cats/cats-effect: high-performance, asynchronous, composable framework for building real-world applications in a purely functional style
+* doobie: a pure functional JDBC layer for Scala and Cats. It provides a functional way to construct programs that use JDBC.
+* fs2: purely functional, effectful, and polymorphic stream processing library
+* others: circe (JSON library) pureconfig (for loading configuration files)
 
 #### Artefacts:
 - EventCounterMain: 
