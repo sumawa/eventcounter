@@ -111,6 +111,7 @@ http://localhost:53248/eventData
 #### Possible Improvements:
 
 * Http Service and Event processing daemon can be separate projects deployed independently
+* More externally configurable properties, esp for scheduled activities like socket read and websocket push
 * Profiling (Apache Bench, VisualVM)
 * Exhuastive Test cases and Coverage (Need more time to write test cases)
 * There is a possible bug in "execute" defined in EventDataService, as the "release" may not happen after use. 
